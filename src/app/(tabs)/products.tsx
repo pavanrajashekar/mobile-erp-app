@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { fetchProducts, Product } from '@/services/productService';
 import { ProductListItem } from '@/components/ProductListItem';
 import { FAB } from '@/components/FAB';
+import { Colors } from '@/constants/Colors';
 
 export default function ProductsScreen() {
     const [products, setProducts] = useState<Product[]>([]);
@@ -39,7 +40,7 @@ export default function ProductsScreen() {
         <View style={styles.container}>
             {loading ? (
                 <View style={styles.centered}>
-                    <ActivityIndicator size="large" />
+                    <ActivityIndicator size="large" color={Colors.primary} />
                 </View>
             ) : (
                 <FlatList
@@ -63,7 +64,7 @@ export default function ProductsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: Colors.background,
     },
     centered: {
         flex: 1,
@@ -72,7 +73,7 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 16,
-        color: '#666',
+        color: Colors.textSecondary,
         textAlign: 'center',
     },
 });

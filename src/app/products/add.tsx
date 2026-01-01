@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { createProduct } from '@/services/productService';
+import Input from '@/components/Input';
+import Button from '@/components/Button';
+import { Colors } from '@/constants/Colors';
 
 export default function AddProductScreen() {
     const [name, setName] = useState('');
+    const [price, setPrice] = useState('');
     const [category, setCategory] = useState('');
     const [unit, setUnit] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -20,6 +24,7 @@ export default function AddProductScreen() {
         try {
             await createProduct({
                 name: name.trim(),
+                price: price ? parseFloat(price) : 0,
                 category: category.trim() || undefined,
                 unit: unit.trim() || undefined,
             });
@@ -33,101 +38,73 @@ export default function AddProductScreen() {
     };
 
     return (
-        <View style={styles.container}>
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <Stack.Screen options={{ title: 'Add Product' }} />
 
             <View style={styles.form}>
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Product Name *</Text>
-                    <TextInput
-                        style={styles.input}
-                        value={name}
-                        onChangeText={setName}
-                        placeholder="e.g. Granite Slab A1"
-                    />
-                </View>
+                <Input
+                    label="Product Name *"
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="e.g. Granite Slab A1"
+                />
 
-            </View>
+                <Input
+                    label="Selling Price"
+                    value={price}
+                    onChangeText={setPrice}
+                    placeholder="0.00"
+                    keyboardType="numeric"
+                />
 
-            <View style={[styles.inputGroup, { flexDirection: 'row', gap: 12 }]}>
-                <View style={{ flex: 1, gap: 8 }}>
-                    <Text style={styles.label}>Category</Text>
-                    <TextInput
-                        style={styles.input}
+                <View style={styles.row}>
+                    <Input
+                        label="Category"
                         value={category}
                         onChangeText={setCategory}
                         placeholder="e.g. Granite"
+                        containerStyle={styles.halfInput}
                     />
-                </View>
 
-                <View style={{ flex: 1, gap: 8 }}>
-                    <Text style={styles.label}>Unit</Text>
-                    <TextInput
-                        style={styles.input}
+                    <Input
+                        label="Unit"
                         value={unit}
                         onChangeText={setUnit}
                         placeholder="e.g. sqft"
+                        containerStyle={styles.halfInput}
                     />
                 </View>
+
+                <Button
+                    title="Save Product"
+                    onPress={handleSubmit}
+                    loading={isSubmitting}
+                    style={styles.marginTop}
+                />
             </View>
-
-            <TouchableOpacity
-                style={[styles.button, isSubmitting && styles.buttonDisabled]}
-                onPress={handleSubmit}
-                disabled={isSubmitting}
-            >
-                {isSubmitting ? (
-                    <ActivityIndicator color="white" />
-                ) : (
-                    <Text style={styles.buttonText}>Save Product</Text>
-                )}
-            </TouchableOpacity>
-        </View>
-
+        </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'white',
+        backgroundColor: Colors.white,
+    },
+    content: {
+        padding: 20,
     },
     form: {
-        padding: 20,
-        gap: 20,
+        gap: 0,
     },
-    inputGroup: {
-        gap: 8,
+    row: {
+        flexDirection: 'row',
+        gap: 12,
     },
-    label: {
-        fontSize: 16,
-        fontWeight: '500',
-        color: '#333',
+    halfInput: {
+        flex: 1,
     },
-    input: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 8,
-        padding: 12,
-        fontSize: 16,
-        backgroundColor: '#f9f9f9',
-    },
-    textArea: {
-        minHeight: 100,
-    },
-    button: {
-        backgroundColor: '#007AFF',
-        padding: 16,
-        borderRadius: 8,
-        alignItems: 'center',
+    marginTop: {
         marginTop: 20,
-    },
-    buttonDisabled: {
-        opacity: 0.7,
-    },
-    buttonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: 'bold',
     },
 });

@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Alert } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { supabase } from '@/services/supabase';
+import Input from '@/components/Input';
+import Button from '@/components/Button';
+import { Colors } from '@/constants/Colors';
 
 export default function RegisterScreen() {
     const [email, setEmail] = useState('');
@@ -28,7 +31,6 @@ export default function RegisterScreen() {
                 // Auto-login successful (Email confirmation disabled)
 
                 // Create profile row manually (in case DB trigger is missing)
-                // We ignore error here because if trigger DOES exist, this might fail/duplicate, which is fine.
                 const { error: profileError } = await supabase
                     .from('profiles')
                     .insert([{
@@ -38,7 +40,6 @@ export default function RegisterScreen() {
                     }]);
 
                 if (profileError) {
-                    // Log but don't block. RLS might block if trigger already made it.
                     console.log('Profile creation note:', profileError.message);
                 }
 
@@ -61,40 +62,29 @@ export default function RegisterScreen() {
             <Text style={styles.subtitle}>Get started with Mobile ERP</Text>
 
             <View style={styles.form}>
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Email</Text>
-                    <TextInput
-                        style={styles.input}
-                        value={email}
-                        onChangeText={setEmail}
-                        placeholder="your@email.com"
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                    />
-                </View>
+                <Input
+                    label="Email"
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="your@email.com"
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                />
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Password</Text>
-                    <TextInput
-                        style={styles.input}
-                        value={password}
-                        onChangeText={setPassword}
-                        placeholder="********"
-                        secureTextEntry
-                    />
-                </View>
+                <Input
+                    label="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="********"
+                    secureTextEntry
+                />
 
-                <TouchableOpacity
-                    style={[styles.button, loading && styles.buttonDisabled]}
+                <Button
+                    title="Sign Up"
                     onPress={handleRegister}
-                    disabled={loading}
-                >
-                    {loading ? (
-                        <ActivityIndicator color="white" />
-                    ) : (
-                        <Text style={styles.buttonText}>Sign Up</Text>
-                    )}
-                </TouchableOpacity>
+                    loading={loading}
+                    style={styles.marginTop}
+                />
 
                 <View style={styles.footer}>
                     <Text style={styles.footerText}>Already have an account? </Text>
@@ -112,7 +102,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'white',
+        backgroundColor: Colors.background,
         justifyContent: 'center',
         padding: 20,
     },
@@ -120,48 +110,20 @@ const styles = StyleSheet.create({
         fontSize: 32,
         fontWeight: 'bold',
         textAlign: 'center',
-        color: '#007AFF',
+        color: Colors.primary,
         marginBottom: 8,
     },
     subtitle: {
         fontSize: 16,
-        color: '#666',
+        color: Colors.textSecondary,
         textAlign: 'center',
         marginBottom: 40,
     },
     form: {
-        gap: 20,
+        gap: 0, // Inputs have their own margin bottom
     },
-    inputGroup: {
-        gap: 8,
-    },
-    label: {
-        fontSize: 16,
-        fontWeight: '500',
-        color: '#333',
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 8,
-        padding: 12,
-        fontSize: 16,
-        backgroundColor: '#f9f9f9',
-    },
-    button: {
-        backgroundColor: '#007AFF',
-        padding: 16,
-        borderRadius: 8,
-        alignItems: 'center',
+    marginTop: {
         marginTop: 10,
-    },
-    buttonDisabled: {
-        opacity: 0.7,
-    },
-    buttonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: 'bold',
     },
     footer: {
         flexDirection: 'row',
@@ -169,11 +131,11 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
     footerText: {
-        color: '#666',
+        color: Colors.textSecondary,
         fontSize: 14,
     },
     link: {
-        color: '#007AFF',
+        color: Colors.primary,
         fontSize: 14,
         fontWeight: 'bold',
     },

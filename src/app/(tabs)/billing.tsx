@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Modal, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Modal, ActivityIndicator, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchProducts, Product } from '@/services/productService';
 import { processSale, CartItem } from '@/services/billingService';
 import { useRouter } from 'expo-router';
+import Button from '@/components/Button';
+import { Colors } from '@/constants/Colors';
 
 export default function BillingScreen() {
     const [products, setProducts] = useState<Product[]>([]);
@@ -11,6 +13,7 @@ export default function BillingScreen() {
     const [isProductModalVisible, setProductModalVisible] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const router = useRouter();
 
     useEffect(() => {
@@ -39,12 +42,10 @@ export default function BillingScreen() {
                         : item
                 );
             }
-            // Default price 0 if not set, user can edit? For now assume free or standard.
-            // In a real app we'd fetch prices. For this MVP, we'll ask/assume.
-            // Let's assume a default price of 100 for demo, or 0.
-            return [...currentCart, { product, quantity: 1, price: 100 }];
+            return [...currentCart, { product, quantity: 1, price: product.price || 0 }];
         });
         setProductModalVisible(false);
+        setSearchQuery(''); // Reset search
     };
 
     const removeFromCart = (productId: string) => {
@@ -56,6 +57,18 @@ export default function BillingScreen() {
             if (item.product.id === productId) {
                 const newQty = Math.max(1, item.quantity + delta);
                 return { ...item, quantity: newQty };
+            }
+            return item;
+        }));
+    };
+
+    const updatePrice = (productId: string, newPrice: string) => {
+        const parsedPrice = parseFloat(newPrice);
+        if (isNaN(parsedPrice)) return; // Or handle empty state better
+
+        setCart(current => current.map(item => {
+            if (item.product.id === productId) {
+                return { ...item, price: parsedPrice };
             }
             return item;
         }));
@@ -79,27 +92,13 @@ export default function BillingScreen() {
         }
     };
 
+    const filteredProducts = products.filter(p =>
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (p.category && p.category.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+
     return (
         <View style={styles.container}>
-            {/* Header / Total */}
-            <View style={styles.header}>
-                <View>
-                    <Text style={styles.headerLabel}>Total Amount</Text>
-                    <Text style={styles.totalAmount}>${totalAmount.toFixed(2)}</Text>
-                </View>
-                <TouchableOpacity
-                    style={[styles.checkoutButton, cart.length === 0 && styles.disabledButton]}
-                    onPress={handleCheckout}
-                    disabled={cart.length === 0 || isProcessing}
-                >
-                    {isProcessing ? (
-                        <ActivityIndicator color="white" />
-                    ) : (
-                        <Text style={styles.checkoutText}>Checkout</Text>
-                    )}
-                </TouchableOpacity>
-            </View>
-
             {/* Cart List */}
             <FlatList
                 data={cart}
@@ -107,7 +106,7 @@ export default function BillingScreen() {
                 contentContainerStyle={styles.cartList}
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
-                        <Ionicons name="cart-outline" size={48} color="#ccc" />
+                        <Ionicons name="cart-outline" size={48} color={Colors.disabled} />
                         <Text style={styles.emptyText}>Cart is empty</Text>
                         <Text style={styles.emptySubtext}>Tap + to add products</Text>
                     </View>
@@ -116,25 +115,50 @@ export default function BillingScreen() {
                     <View style={styles.cartItem}>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.itemName}>{item.product.name}</Text>
-                            <Text style={styles.itemPrice}>${item.price} x {item.quantity}</Text>
+                            <View style={styles.priceContainer}>
+                                <Text style={styles.currencySymbol}>$</Text>
+                                <TextInput
+                                    style={styles.priceInput}
+                                    value={item.price.toString()}
+                                    onChangeText={(text) => updatePrice(item.product.id, text)}
+                                    keyboardType="numeric"
+                                    selectTextOnFocus
+                                />
+                                <Text style={styles.unitText}>x {item.quantity}</Text>
+                            </View>
                         </View>
 
                         <View style={styles.quantityControls}>
                             <TouchableOpacity onPress={() => updateQuantity(item.product.id, -1)} style={styles.qtyBtn}>
-                                <Ionicons name="remove" size={20} color="#007AFF" />
+                                <Ionicons name="remove" size={20} color={Colors.primary} />
                             </TouchableOpacity>
                             <Text style={styles.qtyText}>{item.quantity}</Text>
                             <TouchableOpacity onPress={() => updateQuantity(item.product.id, 1)} style={styles.qtyBtn}>
-                                <Ionicons name="add" size={20} color="#007AFF" />
+                                <Ionicons name="add" size={20} color={Colors.primary} />
                             </TouchableOpacity>
                         </View>
 
                         <TouchableOpacity onPress={() => removeFromCart(item.product.id)} style={styles.removeBtn}>
-                            <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                            <Ionicons name="trash-outline" size={20} color={Colors.error} />
                         </TouchableOpacity>
                     </View>
                 )}
             />
+
+            {/* Footer / Total (Moved to Bottom) */}
+            <View style={styles.footer}>
+                <View>
+                    <Text style={styles.headerLabel}>Total Amount</Text>
+                    <Text style={styles.totalAmount}>${totalAmount.toFixed(2)}</Text>
+                </View>
+                <Button
+                    title="Checkout"
+                    onPress={handleCheckout}
+                    loading={isProcessing}
+                    disabled={cart.length === 0}
+                    style={{ minWidth: 120, borderRadius: 20 }}
+                />
+            </View>
 
             {/* FAB to Add Product */}
             <TouchableOpacity
@@ -157,13 +181,38 @@ export default function BillingScreen() {
                             <Text style={styles.closeText}>Close</Text>
                         </TouchableOpacity>
                     </View>
+
+                    {/* Search Bar */}
+                    <View style={styles.searchContainer}>
+                        <Ionicons name="search" size={20} color={Colors.textSecondary} style={styles.searchIcon} />
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Search products..."
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            autoFocus={false}
+                        />
+                    </View>
+
                     <FlatList
-                        data={products}
+                        data={filteredProducts}
                         keyExtractor={item => item.id}
+                        ListEmptyComponent={
+                            <View style={{ padding: 20, alignItems: 'center' }}>
+                                <Text style={{ color: Colors.textSecondary }}>
+                                    {products.length === 0 ? "No products found. Add some first!" : "No matching products."}
+                                </Text>
+                            </View>
+                        }
                         renderItem={({ item }) => (
                             <TouchableOpacity style={styles.productRow} onPress={() => addToCart(item)}>
-                                <Text style={styles.productRowName}>{item.name}</Text>
-                                <Ionicons name="add-circle-outline" size={24} color="#007AFF" />
+                                <View>
+                                    <Text style={styles.productRowName}>{item.name}</Text>
+                                    <Text style={{ fontSize: 12, color: Colors.textSecondary }}>
+                                        {item.price ? `$${item.price}` : 'No Price'} • {item.unit || 'Unit'}
+                                    </Text>
+                                </View>
+                                <Ionicons name="add-circle-outline" size={24} color={Colors.primary} />
                             </TouchableOpacity>
                         )}
                     />
@@ -176,64 +225,74 @@ export default function BillingScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: Colors.background,
     },
-    header: {
-        backgroundColor: 'white',
+    headerLabel: {
+        fontSize: 14,
+        color: Colors.textSecondary,
+    },
+    footer: {
+        backgroundColor: Colors.white,
         padding: 20,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    headerLabel: {
-        fontSize: 14,
-        color: '#666',
+        borderTopWidth: 1,
+        borderTopColor: Colors.border,
+        paddingBottom: 24, // Safety padding for older iPhones
     },
     totalAmount: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: '#333',
-    },
-    checkoutButton: {
-        backgroundColor: '#34C759',
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 20,
-    },
-    disabledButton: {
-        opacity: 0.5,
-    },
-    checkoutText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 16,
+        color: Colors.text,
     },
     cartList: {
         padding: 16,
         gap: 12,
+        paddingBottom: 100, // To avoid overlap with FAB
     },
     cartItem: {
-        backgroundColor: 'white',
+        backgroundColor: Colors.white,
         padding: 16,
         borderRadius: 12,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
+        borderWidth: 1,
+        borderColor: Colors.border,
     },
     itemName: {
         fontSize: 16,
         fontWeight: '500',
+        color: Colors.text,
     },
-    itemPrice: {
-        color: '#666',
+    priceContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
         marginTop: 4,
+    },
+    currencySymbol: {
+        fontSize: 14,
+        color: Colors.textSecondary,
+        marginRight: 2,
+    },
+    priceInput: {
+        fontSize: 14,
+        color: Colors.text,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border,
+        minWidth: 40,
+        paddingVertical: 0,
+    },
+    unitText: {
+        marginLeft: 8,
+        color: Colors.textSecondary,
+        fontSize: 14,
     },
     quantityControls: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f0f0f0',
+        backgroundColor: Colors.inputBackground,
         borderRadius: 8,
     },
     qtyBtn: {
@@ -243,6 +302,7 @@ const styles = StyleSheet.create({
         minWidth: 24,
         textAlign: 'center',
         fontWeight: '600',
+        color: Colors.text,
     },
     removeBtn: {
         padding: 8,
@@ -255,21 +315,21 @@ const styles = StyleSheet.create({
     emptyText: {
         fontSize: 18,
         fontWeight: '500',
-        color: '#333',
+        color: Colors.text,
         marginTop: 16,
     },
     emptySubtext: {
-        color: '#999',
+        color: Colors.textSecondary,
         marginTop: 8,
     },
     fab: {
         position: 'absolute',
-        bottom: 24,
+        bottom: 110, // Moved up to be above the footer
         right: 24,
         width: 56,
         height: 56,
         borderRadius: 28,
-        backgroundColor: '#007AFF',
+        backgroundColor: Colors.primary,
         justifyContent: 'center',
         alignItems: 'center',
         elevation: 4,
@@ -280,33 +340,55 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: Colors.background,
     },
     modalHeader: {
         padding: 20,
-        backgroundColor: 'white',
+        backgroundColor: Colors.white,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border,
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
+        color: Colors.text,
     },
     closeText: {
-        color: '#007AFF',
+        color: Colors.primary,
         fontSize: 16,
+    },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.white,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border,
+    },
+    searchIcon: {
+        marginRight: 8,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 16,
+        color: Colors.text,
+        height: 40,
     },
     productRow: {
         padding: 16,
-        backgroundColor: 'white',
+        backgroundColor: Colors.white,
         borderBottomWidth: 1,
-        borderBottomColor: '#eee',
+        borderBottomColor: Colors.border,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
     productRowName: {
         fontSize: 16,
+        color: Colors.text,
     },
 });

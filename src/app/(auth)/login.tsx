@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Alert } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { supabase } from '@/services/supabase';
+import Input from '@/components/Input';
+import Button from '@/components/Button';
+import { Colors } from '@/constants/Colors';
 
 export default function LoginScreen() {
     const [email, setEmail] = useState('');
@@ -38,7 +41,6 @@ export default function LoginScreen() {
             if (error) throw error;
 
             // Force navigation to ensure we don't depend solely on the listener
-            // The root layout will eventually update, but this makes the UI responsive immediately.
             router.replace('/');
         } catch (error: any) {
             Alert.alert('Login Failed', error.message);
@@ -54,40 +56,29 @@ export default function LoginScreen() {
             <Text style={styles.subtitle}>Sign in to your shop</Text>
 
             <View style={styles.form}>
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Email</Text>
-                    <TextInput
-                        style={styles.input}
-                        value={email}
-                        onChangeText={setEmail}
-                        placeholder="your@email.com"
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                    />
-                </View>
+                <Input
+                    label="Email"
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="your@email.com"
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                />
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Password</Text>
-                    <TextInput
-                        style={styles.input}
-                        value={password}
-                        onChangeText={setPassword}
-                        placeholder="********"
-                        secureTextEntry
-                    />
-                </View>
+                <Input
+                    label="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="********"
+                    secureTextEntry
+                />
 
-                <TouchableOpacity
-                    style={[styles.button, loading && styles.buttonDisabled]}
+                <Button
+                    title="Sign In"
                     onPress={handleLogin}
-                    disabled={loading}
-                >
-                    {loading ? (
-                        <ActivityIndicator color="white" />
-                    ) : (
-                        <Text style={styles.buttonText}>Sign In</Text>
-                    )}
-                </TouchableOpacity>
+                    loading={loading}
+                    style={styles.marginTop}
+                />
 
                 <View style={styles.footer}>
                     <Text style={styles.footerText}>Don't have an account? </Text>
@@ -99,14 +90,14 @@ export default function LoginScreen() {
                 </View>
 
                 {/* Diagnostic Section */}
-                <View style={{ marginTop: 20, alignItems: 'center' }}>
+                <View style={styles.diagnostic}>
                     <TouchableOpacity onPress={checkConnection} style={{ padding: 10 }}>
-                        <Text style={{ color: '#666', textDecorationLine: 'underline' }}>
+                        <Text style={styles.diagnosticLink}>
                             Test Connection
                         </Text>
                     </TouchableOpacity>
                     {connectionStatus ? (
-                        <Text style={{ color: connectionStatus.includes('Error') ? 'red' : 'green', marginTop: 5, textAlign: 'center' }}>
+                        <Text style={{ color: connectionStatus.includes('Error') ? Colors.error : 'green', marginTop: 5, textAlign: 'center' }}>
                             {connectionStatus}
                         </Text>
                     ) : null}
@@ -119,7 +110,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'white',
+        backgroundColor: Colors.background,
         justifyContent: 'center',
         padding: 20,
     },
@@ -127,48 +118,20 @@ const styles = StyleSheet.create({
         fontSize: 32,
         fontWeight: 'bold',
         textAlign: 'center',
-        color: '#007AFF',
+        color: Colors.primary,
         marginBottom: 8,
     },
     subtitle: {
         fontSize: 16,
-        color: '#666',
+        color: Colors.textSecondary,
         textAlign: 'center',
         marginBottom: 40,
     },
     form: {
-        gap: 20,
+        gap: 0,
     },
-    inputGroup: {
-        gap: 8,
-    },
-    label: {
-        fontSize: 16,
-        fontWeight: '500',
-        color: '#333',
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 8,
-        padding: 12,
-        fontSize: 16,
-        backgroundColor: '#f9f9f9',
-    },
-    button: {
-        backgroundColor: '#007AFF',
-        padding: 16,
-        borderRadius: 8,
-        alignItems: 'center',
+    marginTop: {
         marginTop: 10,
-    },
-    buttonDisabled: {
-        opacity: 0.7,
-    },
-    buttonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: 'bold',
     },
     footer: {
         flexDirection: 'row',
@@ -176,12 +139,20 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
     footerText: {
-        color: '#666',
+        color: Colors.textSecondary,
         fontSize: 14,
     },
     link: {
-        color: '#007AFF',
+        color: Colors.primary,
         fontSize: 14,
         fontWeight: 'bold',
+    },
+    diagnostic: {
+        marginTop: 20,
+        alignItems: 'center',
+    },
+    diagnosticLink: {
+        color: Colors.textSecondary,
+        textDecorationLine: 'underline',
     },
 });

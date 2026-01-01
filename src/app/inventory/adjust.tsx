@@ -1,16 +1,60 @@
-import { useState } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Alert } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity, Text, Alert, Modal, FlatList, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { addStockMovement, MovementType } from '@/services/inventoryService';
+import { fetchProducts, Product } from '@/services/productService';
+import Input from '@/components/Input';
+import Button from '@/components/Button';
+import { Colors } from '@/constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function AdjustStockScreen() {
-    const { productId, productName } = useLocalSearchParams<{ productId: string, productName: string }>();
+    const params = useLocalSearchParams<{ productId: string, productName: string }>();
+    const [selectedProduct, setSelectedProduct] = useState<{ id: string, name: string } | null>(
+        params.productId ? { id: params.productId, name: params.productName || 'Product' } : null
+    );
     const [quantity, setQuantity] = useState('');
     const [type, setType] = useState<MovementType>('purchase');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Product Selection State
+    const [isModalVisible, setModalVisible] = useState(false);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+
     const router = useRouter();
 
+    const loadProducts = async () => {
+        setIsLoadingProducts(true);
+        try {
+            const data = await fetchProducts();
+            setProducts(data);
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Error', 'Failed to load products');
+        } finally {
+            setIsLoadingProducts(false);
+        }
+    };
+
+    const handleSelectProduct = () => {
+        if (!selectedProduct && products.length === 0) {
+            loadProducts();
+        }
+        setModalVisible(true);
+    };
+
+    const onProductSelect = (product: Product) => {
+        setSelectedProduct({ id: product.id, name: product.name });
+        setModalVisible(false);
+    };
+
     const handleSubmit = async () => {
+        if (!selectedProduct) {
+            Alert.alert('Error', 'Please select a product');
+            return;
+        }
+
         if (!quantity || isNaN(Number(quantity))) {
             Alert.alert('Error', 'Please enter a valid quantity');
             return;
@@ -18,17 +62,12 @@ export default function AdjustStockScreen() {
 
         setIsSubmitting(true);
         try {
-            // Purchases/Returns add stock (positive)
-            // Sales/Damage/Adjustment(if negative) remove stock. 
-            // For this UI, we treat the input as absolute magnitude and sign it based on type?
-            // Actually, let's keep it simple: Purchases are +, Damages are -.
-
             let finalQty = Number(quantity);
             if (type === 'damage' || type === 'sale') {
                 finalQty = -Math.abs(finalQty);
             }
 
-            await addStockMovement(productId, finalQty, type);
+            await addStockMovement(selectedProduct.id, finalQty, type);
             Alert.alert('Success', 'Stock updated');
             router.back();
         } catch (error: any) {
@@ -41,49 +80,88 @@ export default function AdjustStockScreen() {
 
     return (
         <View style={styles.container}>
-            <Stack.Screen options={{ title: `Stock: ${productName}` }} />
+            <Stack.Screen options={{ title: selectedProduct ? `Stock: ${selectedProduct.name}` : 'Adjust Stock' }} />
 
             <View style={styles.form}>
+
+                {/* Product Selector */}
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Movement Type</Text>
-                    <View style={styles.typeContainer}>
-                        {(['purchase', 'damage', 'adjustment'] as const).map((t) => (
-                            <TouchableOpacity
-                                key={t}
-                                style={[styles.typeButton, type === t && styles.typeButtonActive]}
-                                onPress={() => setType(t)}
-                            >
-                                <Text style={[styles.typeText, type === t && styles.typeTextActive]}>
-                                    {t.charAt(0).toUpperCase() + t.slice(1)}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
+                    <Text style={styles.label}>Product</Text>
+                    <TouchableOpacity style={styles.selectButton} onPress={handleSelectProduct}>
+                        <Text style={styles.selectButtonText}>
+                            {selectedProduct ? selectedProduct.name : 'Select a Product'}
+                        </Text>
+                        <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
+                    </TouchableOpacity>
                 </View>
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Quantity {type === 'damage' ? '(will subtract)' : '(will add)'}</Text>
-                    <TextInput
-                        style={styles.input}
-                        value={quantity}
-                        onChangeText={setQuantity}
-                        placeholder="0"
-                        keyboardType="numeric"
-                    />
-                </View>
+                {selectedProduct && (
+                    <>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Movement Type</Text>
+                            <View style={styles.typeContainer}>
+                                {(['purchase', 'sale', 'damage', 'adjustment'] as const).map((t) => (
+                                    <TouchableOpacity
+                                        key={t}
+                                        style={[styles.typeButton, type === t && styles.typeButtonActive]}
+                                        onPress={() => setType(t)}
+                                    >
+                                        <Text style={[styles.typeText, type === t && styles.typeTextActive]}>
+                                            {t.charAt(0).toUpperCase() + t.slice(1)}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
 
-                <TouchableOpacity
-                    style={[styles.button, isSubmitting && styles.buttonDisabled]}
-                    onPress={handleSubmit}
-                    disabled={isSubmitting}
-                >
-                    {isSubmitting ? (
-                        <ActivityIndicator color="white" />
-                    ) : (
-                        <Text style={styles.buttonText}>Update Stock</Text>
-                    )}
-                </TouchableOpacity>
+                        <Input
+                            label={`Quantity ${type === 'damage' ? '(will subtract)' : '(will add)'}`}
+                            value={quantity}
+                            onChangeText={setQuantity}
+                            placeholder="0"
+                            keyboardType="numeric"
+                        />
+
+                        <Button
+                            title="Update Stock"
+                            onPress={handleSubmit}
+                            loading={isSubmitting}
+                            style={styles.marginTop}
+                        />
+                    </>
+                )}
             </View>
+
+            {/* Product Selection Modal */}
+            <Modal
+                visible={isModalVisible}
+                animationType="slide"
+                presentationStyle="pageSheet"
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Select Product</Text>
+                        <TouchableOpacity onPress={() => setModalVisible(false)}>
+                            <Text style={styles.closeText}>Close</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {isLoadingProducts ? (
+                        <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
+                    ) : (
+                        <FlatList
+                            data={products}
+                            keyExtractor={item => item.id}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity style={styles.productRow} onPress={() => onProductSelect(item)}>
+                                    <Text style={styles.productRowName}>{item.name}</Text>
+                                    <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+                                </TouchableOpacity>
+                            )}
+                        />
+                    )}
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -91,7 +169,7 @@ export default function AdjustStockScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'white',
+        backgroundColor: Colors.white,
         padding: 20,
     },
     form: {
@@ -103,52 +181,83 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 16,
         fontWeight: '500',
-        color: '#333',
+        color: Colors.text,
     },
-    input: {
+    selectButton: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#ddd',
+        borderColor: Colors.border,
         borderRadius: 8,
         padding: 12,
-        fontSize: 18,
-        backgroundColor: '#f9f9f9',
+        backgroundColor: Colors.inputBackground,
+    },
+    selectButtonText: {
+        fontSize: 16,
+        color: Colors.text,
     },
     typeContainer: {
         flexDirection: 'row',
+        flexWrap: 'wrap', // Allow wrapping for small screens
         gap: 10,
     },
     typeButton: {
         paddingVertical: 8,
         paddingHorizontal: 16,
         borderRadius: 20,
-        backgroundColor: '#f0f0f0',
+        backgroundColor: Colors.inputBackground,
         borderWidth: 1,
-        borderColor: '#eee',
+        borderColor: Colors.border,
     },
     typeButtonActive: {
-        backgroundColor: '#007AFF',
-        borderColor: '#007AFF',
+        backgroundColor: Colors.primary,
+        borderColor: Colors.primary,
     },
     typeText: {
-        color: '#666',
+        color: Colors.textSecondary,
         fontWeight: '500',
     },
     typeTextActive: {
-        color: 'white',
+        color: Colors.white,
     },
-    button: {
-        backgroundColor: '#007AFF',
-        padding: 16,
-        borderRadius: 8,
-        alignItems: 'center',
+    marginTop: {
         marginTop: 20,
     },
-    buttonDisabled: {
-        opacity: 0.7,
+    // Modal Styles
+    modalContainer: {
+        flex: 1,
+        backgroundColor: Colors.background,
     },
-    buttonText: {
-        color: 'white',
-        fontSize: 16,
+    modalHeader: {
+        padding: 20,
+        backgroundColor: Colors.white,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border,
+    },
+    modalTitle: {
+        fontSize: 18,
         fontWeight: 'bold',
+        color: Colors.text,
+    },
+    closeText: {
+        color: Colors.primary,
+        fontSize: 16,
+    },
+    productRow: {
+        padding: 16,
+        backgroundColor: Colors.white,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    productRowName: {
+        fontSize: 16,
+        color: Colors.text,
     },
 });
