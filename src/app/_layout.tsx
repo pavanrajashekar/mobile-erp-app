@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { StatusBar } from 'expo-status-bar';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -21,12 +22,15 @@ export default function RootLayout() {
     // so we return the Stack but the splash covers it.
 
     return (
-        <Stack screenOptions={{ headerShown: false }}>
-            {!user ? (
-                <Stack.Screen name="(auth)" />
-            ) : (
-                <Stack.Screen name="index" />
-            )}
-        </Stack>
+        <>
+            <StatusBar style="dark" />
+            <Stack screenOptions={{ headerShown: false }}>
+                {!user ? (
+                    <Stack.Screen name="(auth)" />
+                ) : (
+                    <Stack.Screen name="index" />
+                )}
+            </Stack>
+        </>
     );
 }

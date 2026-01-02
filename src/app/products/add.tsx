@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { createProduct } from '@/services/productService';
 import Input from '@/components/Input';
@@ -38,51 +39,53 @@ export default function AddProductScreen() {
     };
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-            <Stack.Screen options={{ title: 'Add Product' }} />
+        <SafeAreaView style={styles.container}>
+            <ScrollView contentContainerStyle={styles.content}>
+                <Stack.Screen options={{ title: 'Add Product' }} />
 
-            <View style={styles.form}>
-                <Input
-                    label="Product Name *"
-                    value={name}
-                    onChangeText={setName}
-                    placeholder="e.g. Granite Slab A1"
-                />
-
-                <Input
-                    label="Selling Price"
-                    value={price}
-                    onChangeText={setPrice}
-                    placeholder="0.00"
-                    keyboardType="numeric"
-                />
-
-                <View style={styles.row}>
+                <View style={styles.form}>
                     <Input
-                        label="Category"
-                        value={category}
-                        onChangeText={setCategory}
-                        placeholder="e.g. Granite"
-                        containerStyle={styles.halfInput}
+                        label="Product Name *"
+                        value={name}
+                        onChangeText={setName}
+                        placeholder="e.g. Granite Slab A1"
                     />
 
                     <Input
-                        label="Unit"
-                        value={unit}
-                        onChangeText={setUnit}
-                        placeholder="e.g. sqft"
-                        containerStyle={styles.halfInput}
+                        label="Selling Price"
+                        value={price}
+                        onChangeText={setPrice}
+                        placeholder="0.00"
+                        keyboardType="numeric"
+                    />
+
+                    <View style={styles.row}>
+                        <Input
+                            label="Category"
+                            value={category}
+                            onChangeText={setCategory}
+                            placeholder="e.g. Granite"
+                            containerStyle={styles.halfInput}
+                        />
+
+                        <Input
+                            label="Unit"
+                            value={unit}
+                            onChangeText={setUnit}
+                            placeholder="e.g. sqft"
+                            containerStyle={styles.halfInput}
+                        />
+                    </View>
+
+                    <Button
+                        title="Save Product"
+                        onPress={handleSubmit}
+                        loading={isSubmitting}
+                        style={styles.marginTop}
                     />
                 </View>
-
-                <Button
-                    title="Save Product"
-                    onPress={handleSubmit}
-                    loading={isSubmitting}
-                    style={styles.marginTop}
-                />
-            </View>
-        </ScrollView>
+            </ScrollView>
+        </SafeAreaView>
     );
 }
 

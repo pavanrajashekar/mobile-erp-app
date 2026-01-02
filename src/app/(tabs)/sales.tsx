@@ -1,9 +1,16 @@
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
-import { useState, useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState, useCallback, useMemo } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase } from '@/services/supabase';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import Card from '@/components/Card';
+import ThemedText from '@/components/ThemedText';
+import SegmentedControl from '@react-native-segmented-control/segmented-control';
+import { FAB } from '@/components/FAB';
+import { fetchExpenses, Expense } from '@/services/expenseService';
+import AddExpenseModal from '@/components/AddExpenseModal';
 
 interface Transaction {
     id: string;
@@ -11,25 +18,29 @@ interface Transaction {
     quantity: number;
     movement_type: string;
     created_at: string;
-    product: {
-        name: string;
-    };
+    status: 'completed' | 'quote' | null;
+    total_amount: number;
 }
 
 export default function SalesScreen() {
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [sales, setSales] = useState<Transaction[]>([]);
+    const [expenses, setExpenses] = useState<Expense[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [filter, setFilter] = useState<'all' | 'completed' | 'quote' | 'expenses'>('all');
+    const [expenseModalVisible, setExpenseModalVisible] = useState(false);
+    const router = useRouter();
 
     const fetchTransactions = async () => {
         try {
-            const { data, error } = await supabase
-                .from('stock_movements')
-                .select('*, product:products(name)')
-                .order('created_at', { ascending: false });
+            const [salesResponse, expensesData] = await Promise.all([
+                supabase.from('sales').select('*').order('created_at', { ascending: false }),
+                fetchExpenses()
+            ]);
 
-            if (error) throw error;
-            setTransactions(data || []);
+            if (salesResponse.error) throw salesResponse.error;
+            setSales(salesResponse.data || []);
+            setExpenses(expensesData || []);
         } catch (error) {
             console.error('Error fetching transactions:', error);
         } finally {
@@ -49,78 +60,140 @@ export default function SalesScreen() {
         fetchTransactions();
     };
 
-    const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-    };
-
-    const getIconForType = (type: string) => {
-        switch (type) {
-            case 'purchase': return 'arrow-down-circle';
-            case 'return': return 'arrow-down-circle';
-            case 'sale': return 'arrow-up-circle';
-            case 'damage': return 'alert-circle';
-            default: return 'swap-horizontal';
+    const getStatusColor = (status: 'quote' | 'completed' | null) => {
+        switch (status) {
+            case 'completed': return Colors.success;
+            case 'quote': return Colors.warning;
+            default: return Colors.text; // fallback
         }
     };
 
-    const getColorForType = (type: string) => {
-        switch (type) {
-            case 'purchase': return '#34C759'; // Green
-            case 'return': return '#34C759';
-            case 'sale': return '#007AFF'; // Blue
-            case 'damage': return '#FF3B30'; // Red
-            default: return '#666';
+    const filteredData = useMemo(() => {
+        let data: any[] = [];
+        if (filter === 'expenses') {
+            data = expenses;
+        } else if (filter === 'completed') {
+            data = sales.filter(s => s.status === 'completed');
+        } else if (filter === 'quote') {
+            data = sales.filter(s => s.status === 'quote');
+        } else {
+            // All: Merge and Sort by Date
+            data = [...sales, ...expenses].sort((a, b) => {
+                const dateA = new Date('created_at' in a ? a.created_at : a.date);
+                const dateB = new Date('created_at' in b ? b.created_at : b.date);
+                return dateB.getTime() - dateA.getTime();
+            });
         }
+        return data;
+    }, [sales, expenses, filter]);
+
+    const renderItem = ({ item }: { item: any }) => {
+        const isExpense = 'category' in item;
+
+        if (isExpense) {
+            return (
+                <Card style={[styles.cardContent, { borderLeftWidth: 4, borderLeftColor: Colors.error }]}>
+                    <View style={styles.iconContainer}>
+                        <View style={[styles.iconBox, { backgroundColor: '#ffebee' }]}>
+                            <Ionicons name="cash-outline" size={24} color={Colors.error} />
+                        </View>
+                    </View>
+                    <View style={styles.info}>
+                        <ThemedText type="defaultSemiBold">{item.category}</ThemedText>
+                        <ThemedText type="caption">
+                            {new Date(item.date).toLocaleDateString()} • {item.description || 'No notes'}
+                        </ThemedText>
+                    </View>
+                    <View style={styles.amount}>
+                        <ThemedText type="defaultSemiBold" style={{ color: Colors.error }}>
+                            -${Number(item.amount).toFixed(2)}
+                        </ThemedText>
+                    </View>
+                </Card>
+            );
+        }
+
+        // Transaction
+        return (
+            <TouchableOpacity
+                onPress={() => router.push({ pathname: '/invoice/[id]', params: { id: item.id } })}
+                activeOpacity={0.7}
+            >
+                <Card style={styles.cardContent}>
+                    <View style={styles.iconContainer}>
+                        <Ionicons
+                            name={item.status === 'quote' ? 'document-text-outline' : 'checkmark-circle'}
+                            size={28}
+                            color={getStatusColor(item.status || 'completed')}
+                        />
+                    </View>
+                    <View style={styles.info}>
+                        <ThemedText type="defaultSemiBold">
+                            {item.status === 'quote' ? 'Quote' : 'Invoice'} #{item.id.slice(0, 4).toUpperCase()}
+                        </ThemedText>
+                        <ThemedText type="caption">
+                            {new Date(item.created_at).toLocaleDateString()}
+                        </ThemedText>
+                    </View>
+                    <View style={styles.amount}>
+                        <Text style={styles.quantity}>
+                            ${item.total_amount?.toFixed(2)}
+                        </Text>
+                        <ThemedText type="caption" style={{ color: getStatusColor(item.status || 'completed') }}>
+                            {(item.status || 'completed').toUpperCase()}
+                        </ThemedText>
+                    </View>
+                </Card>
+            </TouchableOpacity>
+        );
     };
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
+            <View style={styles.header}>
+                <ThemedText type="title">Transactions</ThemedText>
+            </View>
+
+            <View style={styles.filterContainer}>
+                <SegmentedControl
+                    values={['All', 'Invoices', 'Quotes', 'Expenses']}
+                    selectedIndex={['all', 'completed', 'quote', 'expenses'].indexOf(filter)}
+                    onChange={(event) => {
+                        setFilter(['all', 'completed', 'quote', 'expenses'][event.nativeEvent.selectedSegmentIndex] as any);
+                    }}
+                />
+            </View>
+
             {loading ? (
                 <View style={styles.centered}>
                     <ActivityIndicator size="large" color={Colors.primary} />
                 </View>
             ) : (
                 <FlatList
-                    data={transactions}
+                    data={filteredData}
                     keyExtractor={item => item.id}
                     refreshing={refreshing}
                     onRefresh={onRefresh}
                     contentContainerStyle={styles.list}
                     ListEmptyComponent={
                         <View style={styles.centered}>
-                            <Text style={styles.emptyText}>No transactions found.</Text>
+                            <ThemedText>No records found.</ThemedText>
                         </View>
                     }
-                    renderItem={({ item }) => (
-                        <View style={styles.card}>
-                            <View style={styles.iconContainer}>
-                                <Ionicons
-                                    name={getIconForType(item.movement_type) as any}
-                                    size={24}
-                                    color={getColorForType(item.movement_type)}
-                                />
-                            </View>
-                            <View style={styles.info}>
-                                <Text style={styles.productName}>{item.product?.name || 'Unknown Product'}</Text>
-                                <Text style={styles.date}>{formatDate(item.created_at)}</Text>
-                            </View>
-                            <View style={styles.amount}>
-                                <Text style={[
-                                    styles.quantity,
-                                    { color: item.quantity > 0 ? '#34C759' : '#333' }
-                                ]}>
-                                    {item.quantity > 0 ? '+' : ''}{item.quantity}
-                                </Text>
-                                <Text style={styles.type}>
-                                    {item.movement_type.toUpperCase()}
-                                </Text>
-                            </View>
-                        </View>
-                    )}
+                    renderItem={renderItem}
                 />
             )}
-        </View>
+
+            {filter === 'expenses' && (
+                <FAB onPress={() => setExpenseModalVisible(true)} />
+            )}
+
+            <AddExpenseModal
+                visible={expenseModalVisible}
+                onClose={() => setExpenseModalVisible(false)}
+                onSave={fetchTransactions}
+            />
+        </SafeAreaView>
     );
 }
 
@@ -128,6 +201,14 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,
+    },
+    header: {
+        padding: 20,
+        backgroundColor: Colors.background,
+    },
+    filterContainer: {
+        paddingHorizontal: 16,
+        marginBottom: 16,
     },
     centered: {
         flex: 1,
@@ -138,35 +219,26 @@ const styles = StyleSheet.create({
     list: {
         padding: 16,
         gap: 12,
+        paddingTop: 0,
+        paddingBottom: 20,
     },
-    emptyText: {
-        color: Colors.textSecondary,
-        fontSize: 16,
-    },
-    card: {
-        backgroundColor: Colors.white,
-        padding: 16,
-        borderRadius: 12,
+    cardContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: Colors.border,
+        padding: 16
     },
     iconContainer: {
         marginRight: 12,
     },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     info: {
         flex: 1,
-    },
-    productName: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: Colors.text,
-        marginBottom: 4,
-    },
-    date: {
-        fontSize: 12,
-        color: Colors.textSecondary,
     },
     amount: {
         alignItems: 'flex-end',
@@ -174,10 +246,6 @@ const styles = StyleSheet.create({
     quantity: {
         fontSize: 18,
         fontWeight: 'bold',
-    },
-    type: {
-        fontSize: 10,
-        color: Colors.textSecondary,
-        marginTop: 2,
+        color: Colors.text
     },
 });

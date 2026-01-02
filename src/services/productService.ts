@@ -11,6 +11,7 @@ export interface Product {
     current_stock?: number;
     is_active: boolean;
     created_at: string;
+    stock_movements?: any[]; // For history
 }
 
 export const fetchProducts = async () => {
@@ -33,7 +34,7 @@ export const fetchProducts = async () => {
         current_stock: product.stock_movements
             ? product.stock_movements.reduce((sum: number, move: { quantity: number }) => sum + move.quantity, 0)
             : 0,
-        stock_movements: undefined // Clean up
+        stock_movements: undefined // Clean up for list view
     })) as Product[];
 };
 
@@ -42,9 +43,7 @@ export const getProduct = async (id: string) => {
         .from('products')
         .select(`
             *,
-            stock_movements (
-                quantity
-            )
+            stock_movements (*)
         `)
         .eq('id', id)
         .single();
@@ -52,12 +51,21 @@ export const getProduct = async (id: string) => {
     if (error) throw error;
 
     const product = data as any;
+
+    // Calculate stock but KEEP the movements for history display
+    const current_stock = product.stock_movements
+        ? product.stock_movements.reduce((sum: number, move: { quantity: number }) => sum + move.quantity, 0)
+        : 0;
+
+    // Sort movements by date desc
+    const sortedMovements = product.stock_movements
+        ? product.stock_movements.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        : [];
+
     return {
         ...product,
-        current_stock: product.stock_movements
-            ? product.stock_movements.reduce((sum: number, move: { quantity: number }) => sum + move.quantity, 0)
-            : 0,
-        stock_movements: undefined
+        current_stock,
+        stock_movements: sortedMovements
     } as Product;
 };
 

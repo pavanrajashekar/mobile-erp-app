@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle, TouchableOpacityProps } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle, TouchableOpacityProps, View } from 'react-native';
 import { Colors } from '../constants/Colors';
 
 interface ButtonProps extends TouchableOpacityProps {
@@ -8,6 +8,7 @@ interface ButtonProps extends TouchableOpacityProps {
     variant?: 'primary' | 'outline' | 'ghost';
     style?: ViewStyle;
     textStyle?: TextStyle;
+    icon?: React.ReactNode;
 }
 
 export default function Button({
@@ -17,6 +18,7 @@ export default function Button({
     style,
     textStyle,
     disabled,
+    icon,
     ...props
 }: ButtonProps) {
     const isPrimary = variant === 'primary';
@@ -41,9 +43,12 @@ export default function Button({
             {loading ? (
                 <ActivityIndicator color={textColor} />
             ) : (
-                <Text style={[styles.text, { color: textColor }, textStyle]}>
-                    {title}
-                </Text>
+                <>
+                    {icon && <View style={{ marginRight: 8 }}>{icon}</View>}
+                    <Text style={[styles.text, { color: textColor }, textStyle]}>
+                        {title}
+                    </Text>
+                </>
             )}
         </TouchableOpacity>
     );

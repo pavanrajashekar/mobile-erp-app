@@ -9,7 +9,7 @@ export interface CartItem {
     price: number;
 }
 
-export const processSale = async (items: CartItem[], totalAmount: number, paymentMode: string = 'cash') => {
+export const processSale = async (items: CartItem[], totalAmount: number, paymentMode: string = 'cash', status: 'completed' | 'quote' = 'completed') => {
     const shopId = await getCurrentShopId();
     if (!shopId) throw new Error('Shop not found');
 
@@ -23,7 +23,7 @@ export const processSale = async (items: CartItem[], totalAmount: number, paymen
             shop_id: shopId,
             total_amount: totalAmount,
             payment_mode: paymentMode,
-            status: 'completed',
+            status: status,
             created_by: user.id
         }])
         .select()
@@ -31,7 +31,7 @@ export const processSale = async (items: CartItem[], totalAmount: number, paymen
 
     if (saleError) throw saleError;
 
-    // 2. Create Sale Items & Deduct Stock
+    // 2. Create Sale Items (Needed for both Sales and Quotes to track products)
     const saleItems = items.map(item => ({
         sale_id: sale.id,
         product_id: item.product.id,
@@ -44,23 +44,22 @@ export const processSale = async (items: CartItem[], totalAmount: number, paymen
         .insert(saleItems);
 
     if (itemsError) {
-        // In a real app, we would rollback the sale here.
         console.error('Error creating sale items:', itemsError);
         throw itemsError;
     }
 
-    // 3. Deduct Stock (Add negative movements)
-    // We do this in parallel for speed, though sequential is safer for errors.
-    const stockPromises = items.map(item =>
-        addStockMovement(
-            item.product.id,
-            -Math.abs(item.quantity), // Ensure it's negative for a sale
-            'sale',
-            sale.id
-        )
-    );
-
-    await Promise.all(stockPromises);
+    // 3. Deduct Stock - ONLY if completed sale
+    if (status === 'completed') {
+        const stockPromises = items.map(item =>
+            addStockMovement(
+                item.product.id,
+                -Math.abs(item.quantity),
+                'sale',
+                sale.id
+            )
+        );
+        await Promise.all(stockPromises);
+    }
 
     return sale;
 };

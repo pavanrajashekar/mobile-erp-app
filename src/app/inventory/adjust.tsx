@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, Alert, Modal, FlatList, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { addStockMovement, MovementType } from '@/services/inventoryService';
 import { fetchProducts, Product } from '@/services/productService';
@@ -79,7 +80,7 @@ export default function AdjustStockScreen() {
     };
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <Stack.Screen options={{ title: selectedProduct ? `Stock: ${selectedProduct.name}` : 'Adjust Stock' }} />
 
             <View style={styles.form}>
@@ -162,7 +163,7 @@ export default function AdjustStockScreen() {
                     )}
                 </View>
             </Modal>
-        </View>
+        </SafeAreaView>
     );
 }
 

@@ -1,8 +1,12 @@
 import { useState } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Alert } from 'react-native';
+import { View, TextInput, StyleSheet, TouchableOpacity, Alert, ScrollView, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { createShop, joinShop } from '@/services/shopService';
 import { supabase } from '@/services/supabase';
+import { Colors } from '@/constants/Colors';
+import Card from '@/components/Card';
+import ThemedText from '@/components/ThemedText';
+import Button from '@/components/Button';
 
 export default function CreateShopScreen() {
     const [name, setName] = useState('');
@@ -59,9 +63,9 @@ export default function CreateShopScreen() {
     };
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <View style={styles.content}>
-                <Text style={styles.title}>Setup Your Shop</Text>
+                <ThemedText type="title" style={styles.title}>Setup Your Shop</ThemedText>
 
                 {/* Toggle */}
                 <View style={styles.toggleContainer}>
@@ -69,146 +73,131 @@ export default function CreateShopScreen() {
                         style={[styles.toggleBtn, mode === 'create' && styles.toggleBtnActive]}
                         onPress={() => setMode('create')}
                     >
-                        <Text style={[styles.toggleText, mode === 'create' && styles.toggleTextActive]}>Create New</Text>
+                        <ThemedText style={[styles.toggleText, mode === 'create' && styles.toggleTextActive]}>Create New</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.toggleBtn, mode === 'join' && styles.toggleBtnActive]}
                         onPress={() => setMode('join')}
                     >
-                        <Text style={[styles.toggleText, mode === 'join' && styles.toggleTextActive]}>Join Existing</Text>
+                        <ThemedText style={[styles.toggleText, mode === 'join' && styles.toggleTextActive]}>Join Existing</ThemedText>
                     </TouchableOpacity>
                 </View>
 
-                <View style={styles.form}>
+                <Card style={styles.formCard}>
                     {mode === 'create' ? (
                         <>
                             <View style={styles.inputGroup}>
-                                <Text style={styles.label}>Shop Name *</Text>
+                                <ThemedText style={styles.label}>Shop Name *</ThemedText>
                                 <TextInput
                                     style={styles.input}
                                     value={name}
                                     onChangeText={setName}
                                     placeholder="e.g. My Granite Store"
+                                    placeholderTextColor="#999"
                                 />
                             </View>
 
                             <View style={styles.inputGroup}>
-                                <Text style={styles.label}>Business Type</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    value={businessType}
-                                    onChangeText={setBusinessType}
-                                    placeholder="e.g. Retail, Wholesale"
-                                />
+                                <ThemedText style={styles.label}>Business Type</ThemedText>
+                                <View style={styles.typeContainer}>
+                                    {['retail', 'stone', 'wine'].map((type) => (
+                                        <TouchableOpacity
+                                            key={type}
+                                            style={[
+                                                styles.typeBtn,
+                                                businessType === type && styles.typeBtnActive
+                                            ]}
+                                            onPress={() => setBusinessType(type)}
+                                        >
+                                            <ThemedText style={[
+                                                styles.typeText,
+                                                businessType === type && styles.typeTextActive
+                                            ]}>
+                                                {type === 'stone' ? '🪨 Stone' : type === 'wine' ? '🍷 Wine' : '🛒 Retail'}
+                                            </ThemedText>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
                             </View>
 
                             <View style={styles.inputGroup}>
-                                <Text style={styles.label}>Admin Access Code *</Text>
+                                <ThemedText style={styles.label}>Admin Access Code *</ThemedText>
                                 <TextInput
                                     style={styles.input}
                                     value={accessCode}
                                     onChangeText={setAccessCode}
                                     placeholder="Enter Admin PIN"
+                                    placeholderTextColor="#999"
                                     secureTextEntry
                                     keyboardType="numeric"
                                 />
-                                <Text style={styles.hint}>Required to create a new organization.</Text>
+                                <ThemedText type="caption" style={styles.hint}>Required to create a new organization.</ThemedText>
                             </View>
                         </>
                     ) : (
                         <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Shop ID *</Text>
+                            <ThemedText style={styles.label}>Shop ID *</ThemedText>
                             <TextInput
                                 style={styles.input}
                                 value={shopId}
                                 onChangeText={setShopId}
                                 placeholder="Paste the Shop ID here"
+                                placeholderTextColor="#999"
                                 autoCapitalize="none"
                             />
-                            <Text style={styles.hint}>Ask the shop owner for their ID</Text>
+                            <ThemedText type="caption" style={styles.hint}>Ask the shop owner for their ID</ThemedText>
                         </View>
                     )}
 
-                    <TouchableOpacity
-                        style={[styles.button, isSubmitting && styles.buttonDisabled]}
+                    <Button
+                        title={mode === 'create' ? 'Create Shop' : 'Join Shop'}
                         onPress={handleSubmit}
-                        disabled={isSubmitting}
-                    >
-                        {isSubmitting ? (
-                            <ActivityIndicator color="white" />
-                        ) : (
-                            <Text style={styles.buttonText}>
-                                {mode === 'create' ? 'Create Shop' : 'Join Shop'}
-                            </Text>
-                        )}
-                    </TouchableOpacity>
-                </View>
+                        loading={isSubmitting}
+                        style={{ marginTop: 20 }}
+                    />
+                </Card>
             </View>
 
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                <Text style={styles.logoutText}>Log Out</Text>
+                <ThemedText style={styles.logoutText}>Log Out</ThemedText>
             </TouchableOpacity>
-        </View>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'white',
+        backgroundColor: Colors.background,
         padding: 20,
-        justifyContent: 'space-between', // Push logout to bottom
+        justifyContent: 'space-between',
     },
     content: {
         flex: 1,
         justifyContent: 'center',
     },
     title: {
-        fontSize: 28,
-        fontWeight: 'bold',
         textAlign: 'center',
-        color: '#333',
-        marginBottom: 8,
+        marginBottom: 24,
     },
-    subtitle: {
-        fontSize: 16,
-        color: '#666',
-        textAlign: 'center',
-        marginBottom: 40,
-    },
-    form: {
+    formCard: {
         gap: 20,
     },
     inputGroup: {
         gap: 8,
     },
     label: {
-        fontSize: 16,
+        color: Colors.text,
         fontWeight: '500',
-        color: '#333',
     },
     input: {
         borderWidth: 1,
-        borderColor: '#ddd',
+        borderColor: Colors.border,
         borderRadius: 8,
         padding: 12,
         fontSize: 16,
-        backgroundColor: '#f9f9f9',
-    },
-    button: {
-        backgroundColor: '#007AFF',
-        padding: 16,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 10,
-    },
-    buttonDisabled: {
-        opacity: 0.7,
-    },
-    buttonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: 'bold',
+        backgroundColor: Colors.inputBackground,
+        color: Colors.text,
     },
     logoutButton: {
         padding: 16,
@@ -216,14 +205,14 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     logoutText: {
-        color: '#FF3B30',
+        color: Colors.error,
         fontSize: 16,
         fontWeight: '500',
     },
     toggleContainer: {
         flexDirection: 'row',
-        backgroundColor: '#f0f0f0',
-        borderRadius: 8,
+        backgroundColor: Colors.inputBackground,
+        borderRadius: 12,
         padding: 4,
         marginBottom: 24,
     },
@@ -231,10 +220,10 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingVertical: 10,
         alignItems: 'center',
-        borderRadius: 6,
+        borderRadius: 8,
     },
     toggleBtnActive: {
-        backgroundColor: 'white',
+        backgroundColor: Colors.white,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
@@ -243,14 +232,41 @@ const styles = StyleSheet.create({
     },
     toggleText: {
         fontWeight: '500',
-        color: '#666',
+        color: Colors.textSecondary,
     },
     toggleTextActive: {
-        color: '#007AFF',
+        color: Colors.primary,
         fontWeight: '700',
     },
     hint: {
         fontSize: 12,
-        color: '#999',
+        color: Colors.textSecondary,
+    },
+    typeContainer: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    typeBtn: {
+        flex: 1,
+        paddingVertical: 12,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        borderRadius: 8,
+        alignItems: 'center',
+        backgroundColor: Colors.inputBackground,
+    },
+    typeBtnActive: {
+        borderColor: Colors.primary,
+        backgroundColor: Colors.white, // Or a light primary tint
+    },
+    typeText: {
+        fontWeight: '500',
+        color: Colors.textSecondary,
+        textTransform: 'capitalize',
+        fontSize: 12,
+    },
+    typeTextActive: {
+        color: Colors.primary,
+        fontWeight: 'bold',
     },
 });

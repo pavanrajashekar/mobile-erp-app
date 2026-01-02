@@ -1,34 +1,49 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Modal, ActivityIndicator, TextInput } from 'react-native';
+import { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchProducts, Product } from '@/services/productService';
 import { processSale, CartItem } from '@/services/billingService';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import Button from '@/components/Button';
 import { Colors } from '@/constants/Colors';
+import { getCurrentShopId } from '@/services/shopService';
+import { supabase } from '@/services/supabase';
+import SlabMeasurementModal from '@/components/SlabMeasurementModal';
+import Card from '@/components/Card';
+import ProductSelectionModal from '@/components/ProductSelectionModal';
+import ThemedText from '@/components/ThemedText';
 
 export default function BillingScreen() {
-    const [products, setProducts] = useState<Product[]>([]);
+    // Note: 'products' state is removed as it's now handled by the Modal
     const [cart, setCart] = useState<CartItem[]>([]);
     const [isProductModalVisible, setProductModalVisible] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [shopType, setShopType] = useState<string>('');
+
+    // Slab Measurement State
+    const [slabModalVisible, setSlabModalVisible] = useState(false);
+    const [currentSlabItem, setCurrentSlabItem] = useState<(CartItem & { name: string }) | null>(null);
+    const [slabDetails, setSlabDetails] = useState<Record<string, { slabs: any[], target: number }>>({});
+
     const router = useRouter();
 
-    useEffect(() => {
-        loadProducts();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            loadShopData();
+        }, [])
+    );
 
-    const loadProducts = async () => {
-        setIsLoading(true);
+    const loadShopData = async () => {
         try {
-            const data = await fetchProducts();
-            setProducts(data);
+            const shopId = await getCurrentShopId();
+            if (shopId) {
+                const { data: shop } = await supabase.from('shops').select('business_type').eq('id', shopId).single();
+                setShopType(shop?.business_type || 'retail');
+            }
         } catch (error) {
             console.error(error);
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -45,7 +60,6 @@ export default function BillingScreen() {
             return [...currentCart, { product, quantity: 1, price: product.price || 0 }];
         });
         setProductModalVisible(false);
-        setSearchQuery(''); // Reset search
     };
 
     const removeFromCart = (productId: string) => {
@@ -64,7 +78,7 @@ export default function BillingScreen() {
 
     const updatePrice = (productId: string, newPrice: string) => {
         const parsedPrice = parseFloat(newPrice);
-        if (isNaN(parsedPrice)) return; // Or handle empty state better
+        if (isNaN(parsedPrice)) return;
 
         setCart(current => current.map(item => {
             if (item.product.id === productId) {
@@ -74,31 +88,55 @@ export default function BillingScreen() {
         }));
     };
 
+    const openSlabModal = (item: CartItem) => {
+        setCurrentSlabItem({ ...item, name: item.product.name });
+        setSlabModalVisible(true);
+    };
+
+    const handleSlabSave = (totalQty: number, slabs: any[]) => {
+        if (currentSlabItem) {
+            setCart(prev => prev.map(i =>
+                i.product.id === currentSlabItem.product.id
+                    ? { ...i, quantity: totalQty }
+                    : i
+            ));
+
+            setSlabDetails(prev => ({
+                ...prev,
+                [currentSlabItem.product.id]: {
+                    slabs,
+                    target: 0
+                }
+            }));
+        }
+    };
+
     const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-    const handleCheckout = async () => {
+    const handleCheckout = async (status: 'completed' | 'quote' = 'completed') => {
         if (cart.length === 0) return;
 
         setIsProcessing(true);
         try {
-            await processSale(cart, totalAmount);
-            Alert.alert('Success', 'Sale completed!', [
-                { text: 'OK', onPress: () => setCart([]) }
-            ]);
+            await processSale(cart, totalAmount, 'cash', status);
+            Alert.alert(
+                'Success',
+                status === 'quote' ? 'Quote saved successfully!' : 'Sale completed!',
+                [{ text: 'OK', onPress: () => setCart([]) }]
+            );
         } catch (error: any) {
-            Alert.alert('Checkout Failed', error.message);
+            Alert.alert(status === 'quote' ? 'Quote Failed' : 'Checkout Failed', error.message);
         } finally {
             setIsProcessing(false);
         }
     };
 
-    const filteredProducts = products.filter(p =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.category && p.category.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
+            <View style={styles.header}>
+                <ThemedText type="title">Billing</ThemedText>
+            </View>
+
             {/* Cart List */}
             <FlatList
                 data={cart}
@@ -107,16 +145,16 @@ export default function BillingScreen() {
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
                         <Ionicons name="cart-outline" size={48} color={Colors.disabled} />
-                        <Text style={styles.emptyText}>Cart is empty</Text>
-                        <Text style={styles.emptySubtext}>Tap + to add products</Text>
+                        <ThemedText style={styles.emptyText}>Cart is empty</ThemedText>
+                        <ThemedText type="caption">Tap + to add products</ThemedText>
                     </View>
                 }
                 renderItem={({ item }) => (
-                    <View style={styles.cartItem}>
+                    <Card style={styles.cartItemContent}>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.itemName}>{item.product.name}</Text>
+                            <ThemedText type="defaultSemiBold">{item.product.name}</ThemedText>
                             <View style={styles.priceContainer}>
-                                <Text style={styles.currencySymbol}>$</Text>
+                                <ThemedText style={styles.currencySymbol}>$</ThemedText>
                                 <TextInput
                                     style={styles.priceInput}
                                     value={item.price.toString()}
@@ -124,43 +162,70 @@ export default function BillingScreen() {
                                     keyboardType="numeric"
                                     selectTextOnFocus
                                 />
-                                <Text style={styles.unitText}>x {item.quantity}</Text>
+                                <ThemedText style={styles.unitText}>x {item.quantity}</ThemedText>
                             </View>
                         </View>
 
                         <View style={styles.quantityControls}>
-                            <TouchableOpacity onPress={() => updateQuantity(item.product.id, -1)} style={styles.qtyBtn}>
-                                <Ionicons name="remove" size={20} color={Colors.primary} />
-                            </TouchableOpacity>
-                            <Text style={styles.qtyText}>{item.quantity}</Text>
-                            <TouchableOpacity onPress={() => updateQuantity(item.product.id, 1)} style={styles.qtyBtn}>
-                                <Ionicons name="add" size={20} color={Colors.primary} />
-                            </TouchableOpacity>
+                            {shopType === 'stone' ? (
+                                <TouchableOpacity
+                                    style={styles.measureBtn}
+                                    onPress={() => openSlabModal(item)}
+                                >
+                                    <Ionicons name="grid-outline" size={20} color={Colors.primary} />
+                                    <View>
+                                        <ThemedText style={styles.measureText}>Measurement Sheet</ThemedText>
+                                        <ThemedText type="caption" style={{ fontSize: 10 }}>
+                                            {(slabDetails[item.product.id]?.slabs?.length || 0)} slabs • {item.quantity.toFixed(2)} Sq.Ft
+                                        </ThemedText>
+                                    </View>
+                                </TouchableOpacity>
+                            ) : (
+                                <>
+                                    <TouchableOpacity onPress={() => updateQuantity(item.product.id, -1)} style={styles.qtyBtn}>
+                                        <Ionicons name="remove" size={20} color={Colors.primary} />
+                                    </TouchableOpacity>
+                                    <Text style={styles.qtyText}>{item.quantity}</Text>
+                                    <TouchableOpacity onPress={() => updateQuantity(item.product.id, 1)} style={styles.qtyBtn}>
+                                        <Ionicons name="add" size={20} color={Colors.primary} />
+                                    </TouchableOpacity>
+                                </>
+                            )}
                         </View>
 
                         <TouchableOpacity onPress={() => removeFromCart(item.product.id)} style={styles.removeBtn}>
                             <Ionicons name="trash-outline" size={20} color={Colors.error} />
                         </TouchableOpacity>
-                    </View>
+                    </Card>
                 )}
             />
 
-            {/* Footer / Total (Moved to Bottom) */}
+            {/* Footer */}
             <View style={styles.footer}>
                 <View>
-                    <Text style={styles.headerLabel}>Total Amount</Text>
-                    <Text style={styles.totalAmount}>${totalAmount.toFixed(2)}</Text>
+                    <ThemedText style={styles.headerLabel}>Total Amount</ThemedText>
+                    <ThemedText style={styles.totalAmount}>${totalAmount.toFixed(2)}</ThemedText>
                 </View>
-                <Button
-                    title="Checkout"
-                    onPress={handleCheckout}
-                    loading={isProcessing}
-                    disabled={cart.length === 0}
-                    style={{ minWidth: 120, borderRadius: 20 }}
-                />
+                <View style={styles.footerActions}>
+                    <Button
+                        title="Quote"
+                        onPress={() => handleCheckout('quote')}
+                        loading={isProcessing}
+                        disabled={cart.length === 0}
+                        variant="outline"
+                        style={{ minWidth: 80, borderRadius: 20, marginRight: 8 }}
+                    />
+                    <Button
+                        title="Checkout"
+                        onPress={() => handleCheckout('completed')}
+                        loading={isProcessing}
+                        disabled={cart.length === 0}
+                        style={{ minWidth: 100, borderRadius: 20 }}
+                    />
+                </View>
             </View>
 
-            {/* FAB to Add Product */}
+            {/* FAB */}
             <TouchableOpacity
                 style={styles.fab}
                 onPress={() => setProductModalVisible(true)}
@@ -168,63 +233,34 @@ export default function BillingScreen() {
                 <Ionicons name="add" size={30} color="white" />
             </TouchableOpacity>
 
-            {/* Product Selection Modal */}
-            <Modal
+            {/* Product Selection Modal (Reusable) */}
+            <ProductSelectionModal
                 visible={isProductModalVisible}
-                animationType="slide"
-                presentationStyle="pageSheet"
-            >
-                <View style={styles.modalContainer}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Select Product</Text>
-                        <TouchableOpacity onPress={() => setProductModalVisible(false)}>
-                            <Text style={styles.closeText}>Close</Text>
-                        </TouchableOpacity>
-                    </View>
+                onClose={() => setProductModalVisible(false)}
+                onSelectProduct={addToCart}
+            />
 
-                    {/* Search Bar */}
-                    <View style={styles.searchContainer}>
-                        <Ionicons name="search" size={20} color={Colors.textSecondary} style={styles.searchIcon} />
-                        <TextInput
-                            style={styles.searchInput}
-                            placeholder="Search products..."
-                            value={searchQuery}
-                            onChangeText={setSearchQuery}
-                            autoFocus={false}
-                        />
-                    </View>
-
-                    <FlatList
-                        data={filteredProducts}
-                        keyExtractor={item => item.id}
-                        ListEmptyComponent={
-                            <View style={{ padding: 20, alignItems: 'center' }}>
-                                <Text style={{ color: Colors.textSecondary }}>
-                                    {products.length === 0 ? "No products found. Add some first!" : "No matching products."}
-                                </Text>
-                            </View>
-                        }
-                        renderItem={({ item }) => (
-                            <TouchableOpacity style={styles.productRow} onPress={() => addToCart(item)}>
-                                <View>
-                                    <Text style={styles.productRowName}>{item.name}</Text>
-                                    <Text style={{ fontSize: 12, color: Colors.textSecondary }}>
-                                        {item.price ? `$${item.price}` : 'No Price'} • {item.unit || 'Unit'}
-                                    </Text>
-                                </View>
-                                <Ionicons name="add-circle-outline" size={24} color={Colors.primary} />
-                            </TouchableOpacity>
-                        )}
-                    />
-                </View>
-            </Modal>
-        </View>
+            {/* Stone Measurement Modal */}
+            <SlabMeasurementModal
+                visible={slabModalVisible}
+                onClose={() => setSlabModalVisible(false)}
+                onSave={handleSlabSave}
+                productName={currentSlabItem?.name || 'Product'}
+                existingSlabs={currentSlabItem ? slabDetails[currentSlabItem.product.id]?.slabs : []}
+                initialTarget={0}
+            />
+        </SafeAreaView >
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: Colors.background,
+    },
+    header: {
+        paddingVertical: 10,
+        paddingHorizontal: 20,
         backgroundColor: Colors.background,
     },
     headerLabel: {
@@ -239,32 +275,27 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderTopWidth: 1,
         borderTopColor: Colors.border,
-        paddingBottom: 24, // Safety padding for older iPhones
+        paddingBottom: 24,
     },
     totalAmount: {
         fontSize: 24,
         fontWeight: 'bold',
         color: Colors.text,
     },
+    footerActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
     cartList: {
         padding: 16,
         gap: 12,
-        paddingBottom: 100, // To avoid overlap with FAB
+        paddingBottom: 100,
     },
-    cartItem: {
-        backgroundColor: Colors.white,
-        padding: 16,
-        borderRadius: 12,
+    cartItemContent: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
-        borderWidth: 1,
-        borderColor: Colors.border,
-    },
-    itemName: {
-        fontSize: 16,
-        fontWeight: '500',
-        color: Colors.text,
     },
     priceContainer: {
         flexDirection: 'row',
@@ -318,13 +349,9 @@ const styles = StyleSheet.create({
         color: Colors.text,
         marginTop: 16,
     },
-    emptySubtext: {
-        color: Colors.textSecondary,
-        marginTop: 8,
-    },
     fab: {
         position: 'absolute',
-        bottom: 110, // Moved up to be above the footer
+        bottom: 110,
         right: 24,
         width: 56,
         height: 56,
@@ -338,57 +365,18 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
     },
-    modalContainer: {
-        flex: 1,
-        backgroundColor: Colors.background,
-    },
-    modalHeader: {
-        padding: 20,
-        backgroundColor: Colors.white,
+    measureBtn: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
+        backgroundColor: Colors.inputBackground,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+        gap: 6,
     },
-    modalTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: Colors.text,
-    },
-    closeText: {
+    measureText: {
+        fontSize: 14,
+        fontWeight: '600',
         color: Colors.primary,
-        fontSize: 16,
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.white,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
-    },
-    searchIcon: {
-        marginRight: 8,
-    },
-    searchInput: {
-        flex: 1,
-        fontSize: 16,
-        color: Colors.text,
-        height: 40,
-    },
-    productRow: {
-        padding: 16,
-        backgroundColor: Colors.white,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    productRowName: {
-        fontSize: 16,
-        color: Colors.text,
     },
 });

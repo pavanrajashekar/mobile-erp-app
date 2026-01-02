@@ -78,3 +78,17 @@ export const joinShop = async (shopId: string) => {
 
     return shop;
 };
+
+export const getShopDetails = async (shopId: string) => {
+    const { data: shop, error } = await supabase
+        .from('shops')
+        .select('*')
+        .eq('id', shopId)
+        .single();
+
+    if (error) {
+        console.error('Error fetching shop details:', error);
+        return null;
+    }
+    return shop;
+};
