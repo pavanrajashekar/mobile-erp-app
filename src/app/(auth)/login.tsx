@@ -8,6 +8,7 @@ import Button from '@/components/Button';
 import { Colors } from '@/constants/Colors';
 import ThemedText from '@/components/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
+import { useThemeColor } from '@/hooks/useThemeColor';
 
 export default function LoginScreen() {
     const [email, setEmail] = useState('');
@@ -16,6 +17,14 @@ export default function LoginScreen() {
     const router = useRouter();
 
     const [connectionStatus, setConnectionStatus] = useState<string>('');
+
+    // Theme Colors
+    const backgroundColor = useThemeColor({}, 'background');
+    const primaryLight = useThemeColor({}, 'primaryLight');
+    const primary = useThemeColor({}, 'primary');
+    const textSecondary = useThemeColor({}, 'textSecondary');
+    const errorColor = useThemeColor({}, 'error');
+    const successColor = useThemeColor({}, 'success');
 
     const checkConnection = async () => {
         setConnectionStatus('Checking...');
@@ -54,18 +63,21 @@ export default function LoginScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor }]}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
             >
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     <View style={styles.header}>
-                        <View style={styles.iconContainer}>
-                            <Ionicons name="cart" size={40} color={Colors.primary} />
+                        <View style={[styles.iconContainer, { backgroundColor: primaryLight }]}>
+                            <Image
+                                source={require('../../../assets/images/revenew-logo.svg')}
+                                style={{ width: 48, height: 48, resizeMode: 'contain' }}
+                            />
                         </View>
-                        <ThemedText type="title" style={styles.title}>Welcome Back</ThemedText>
-                        <ThemedText style={styles.subtitle}>Sign in to manage your shop</ThemedText>
+                        <ThemedText type="title" style={styles.title}>revenew</ThemedText>
+                        <ThemedText style={[styles.subtitle, { color: textSecondary }]}>Boost your revenue easily & in time</ThemedText>
                     </View>
 
                     <View style={styles.form}>
@@ -96,10 +108,10 @@ export default function LoginScreen() {
                         />
 
                         <View style={styles.footer}>
-                            <ThemedText style={styles.footerText}>Don't have an account? </ThemedText>
+                            <ThemedText style={{ color: textSecondary }}>Don't have an account? </ThemedText>
                             <Link href="/(auth)/register" asChild>
                                 <TouchableOpacity>
-                                    <ThemedText type="defaultSemiBold" style={styles.link}>Sign Up</ThemedText>
+                                    <ThemedText type="defaultSemiBold" style={{ color: primary }}>Sign Up</ThemedText>
                                 </TouchableOpacity>
                             </Link>
                         </View>
@@ -108,12 +120,12 @@ export default function LoginScreen() {
                     {/* Diagnostic Section */}
                     <View style={styles.diagnostic}>
                         <TouchableOpacity onPress={checkConnection} style={styles.diagnosticBtn}>
-                            <ThemedText style={styles.diagnosticLink}>
+                            <ThemedText style={{ color: textSecondary, fontSize: 12, textDecorationLine: 'underline' }}>
                                 Test Connection
                             </ThemedText>
                         </TouchableOpacity>
                         {connectionStatus ? (
-                            <Text style={{ color: connectionStatus.includes('Error') ? Colors.error : 'green', marginTop: 5, textAlign: 'center', fontSize: 12 }}>
+                            <Text style={{ color: connectionStatus.includes('Error') ? errorColor : successColor, marginTop: 5, textAlign: 'center', fontSize: 12 }}>
                                 {connectionStatus}
                             </Text>
                         ) : null}
@@ -127,7 +139,6 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     scrollContent: {
         flexGrow: 1,
@@ -141,7 +152,6 @@ const styles = StyleSheet.create({
     iconContainer: {
         width: 80,
         height: 80,
-        backgroundColor: Colors.primaryLight, // Ensure this exists or use rgba
         borderRadius: 40,
         justifyContent: 'center',
         alignItems: 'center',
@@ -153,7 +163,6 @@ const styles = StyleSheet.create({
     },
     subtitle: {
         fontSize: 16,
-        color: Colors.textSecondary,
         textAlign: 'center',
     },
     form: {
@@ -167,22 +176,11 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginTop: 24,
     },
-    footerText: {
-        color: Colors.textSecondary,
-    },
-    link: {
-        color: Colors.primary,
-    },
     diagnostic: {
         marginTop: 40,
         alignItems: 'center',
     },
     diagnosticBtn: {
         padding: 8,
-    },
-    diagnosticLink: {
-        color: Colors.textSecondary,
-        fontSize: 12,
-        textDecorationLine: 'underline',
     },
 });

@@ -8,12 +8,18 @@ import Button from '@/components/Button';
 import { Colors } from '@/constants/Colors';
 import ThemedText from '@/components/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
+import { useThemeColor } from '@/hooks/useThemeColor';
 
 export default function RegisterScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+
+    const backgroundColor = useThemeColor({}, 'background');
+    const primaryLight = useThemeColor({}, 'primaryLight');
+    const primary = useThemeColor({}, 'primary');
+    const textSecondary = useThemeColor({}, 'textSecondary');
 
     const handleRegister = async () => {
         if (!email || !password) {
@@ -60,18 +66,18 @@ export default function RegisterScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor }]}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
             >
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     <View style={styles.header}>
-                        <View style={styles.iconContainer}>
-                            <Ionicons name="person-add" size={40} color={Colors.primary} />
+                        <View style={[styles.iconContainer, { backgroundColor: primaryLight }]}>
+                            <Ionicons name="person-add" size={40} color={primary} />
                         </View>
                         <ThemedText type="title" style={styles.title}>Create Account</ThemedText>
-                        <ThemedText style={styles.subtitle}>Get started with MyShop Pro</ThemedText>
+                        <ThemedText style={[styles.subtitle, { color: textSecondary }]}>Get started with MyShop Pro</ThemedText>
                     </View>
 
                     <View style={styles.form}>
@@ -102,10 +108,10 @@ export default function RegisterScreen() {
                         />
 
                         <View style={styles.footer}>
-                            <ThemedText style={styles.footerText}>Already have an account? </ThemedText>
+                            <ThemedText style={{ color: textSecondary }}>Already have an account? </ThemedText>
                             <Link href="/(auth)/login" asChild>
                                 <TouchableOpacity>
-                                    <ThemedText type="defaultSemiBold" style={styles.link}>Sign In</ThemedText>
+                                    <ThemedText type="defaultSemiBold" style={{ color: primary }}>Sign In</ThemedText>
                                 </TouchableOpacity>
                             </Link>
                         </View>
@@ -119,7 +125,6 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     scrollContent: {
         flexGrow: 1,
@@ -133,7 +138,6 @@ const styles = StyleSheet.create({
     iconContainer: {
         width: 80,
         height: 80,
-        backgroundColor: Colors.primaryLight,
         borderRadius: 40,
         justifyContent: 'center',
         alignItems: 'center',
@@ -145,7 +149,6 @@ const styles = StyleSheet.create({
     },
     subtitle: {
         fontSize: 16,
-        color: Colors.textSecondary,
         textAlign: 'center',
     },
     form: {
@@ -158,11 +161,5 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         marginTop: 24,
-    },
-    footerText: {
-        color: Colors.textSecondary,
-    },
-    link: {
-        color: Colors.primary,
     },
 });

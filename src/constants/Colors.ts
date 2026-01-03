@@ -1,42 +1,47 @@
+/**
+ * Revenew Palette (Blue Theme)
+ * Light: Clean White/Blue | Dark: Removed
+ */
+
+const palette = {
+    // Brand Blues
+    primaryDeep: '#004aad',   // Legacy - Kept for reference but unused
+    primaryMid: '#166ad9',    // Secondary / Interactive
+    primaryBright: '#2985ff', // Main Brand Color
+
+    // Neutrals
+    white: '#FFFFFF',
+
+    // Functional
+    red: '#EF4444',
+    amber: '#F59E0B',
+    green: '#10B981',
+};
+
 export const Colors = {
-    primary: '#2563EB', // Blue 600 - Trust, Safety, Professional
-    primaryDark: '#1E40AF', // Blue 800
-    primaryLight: '#DBEAFE', // Blue 100
+    light: {
+        text: '#1E293B',             // Slate 800 - Deep Blue-Black (Softer than pure black)
+        textSecondary: '#64748B',    // Slate 500 - Cool Gray
+        textInverse: palette.white,
 
-    secondary: '#475569', // Slate 600 - Neutral secondary
-    secondaryLight: '#F1F5F9', // Slate 100
+        background: '#F4F6F9',       // Bluish-Gray Background
+        surface: '#FFFFFF',          // Clean White Surface (Card)
+        surfaceSubtle: '#F1F5F9',    // Slate 100 - Inputs / Secondary backgrounds
 
-    background: '#f8fafc', // Slate 50
-    surface: '#ffffff',
-    surfaceSubtle: '#f1f5f9', // Slate 100
+        primary: palette.primaryBright,
+        primaryLight: 'rgba(41, 133, 255, 0.12)', // Based on primaryBright
 
-    text: '#1e293b', // Slate 800
-    textSecondary: '#64748b', // Slate 500
-    textTertiary: '#94a3b8', // Slate 400
+        border: '#E2E8F0',           // Slate 200 - Cool Border
+        icon: '#64748B',             // Matches textSecondary
 
-    border: '#e2e8f0', // Slate 200
+        success: palette.green,
+        error: palette.red,
+        warning: palette.amber,
 
-    success: '#10b981', // Emerald 500
-    successLight: '#d1fae5', // Emerald 100
+        tabIconDefault: '#94A3B8',   // Slate 400
+        tabIconSelected: palette.primaryBright,
 
-    error: '#ef4444', // Red 500
-    errorLight: '#fee2e2', // Red 100
-
-    warning: '#f59e0b', // Amber 500
-    warningLight: '#fef3c7', // Amber 100
-
-    white: '#ffffff',
-    black: '#000000',
-
-    inputBackground: '#ffffff',
-    disabled: '#cbd5e1', // Slate 300
-
-    // Shadows
-    shadow: {
-        shadowColor: '#64748b',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 5,
-    }
+        // Shadows
+        shadowColor: '#64748B',      // Slate shadow
+    },
 };

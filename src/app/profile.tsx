@@ -1,4 +1,4 @@
-import { View, StyleSheet, Alert, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, Alert, TouchableOpacity, ScrollView, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { signOut } from '@/services/auth.service';
@@ -11,12 +11,17 @@ import { supabase } from '@/services/supabase';
 import ThemedText from '@/components/ThemedText';
 import Card from '@/components/Card';
 import Avatar from '@/components/Avatar';
+import { useTheme } from '@/context/ThemeContext';
 
 export default function ProfileScreen() {
     const { user } = useAuth();
     const router = useRouter();
     const [shop, setShop] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+
+    // Theme Context
+    const { theme } = useTheme();
+    const activeColors = Colors[theme];
 
     useEffect(() => {
         fetchShopDetails();
@@ -54,28 +59,28 @@ export default function ProfileScreen() {
         ]);
     };
 
-    const SettingsItem = ({ icon, label, value, onPress, isDestructive = false }: any) => (
-        <TouchableOpacity style={styles.item} onPress={onPress}>
-            <View style={[styles.itemIcon, { backgroundColor: isDestructive ? Colors.errorLight : Colors.surfaceSubtle }]}>
-                <Ionicons name={icon} size={20} color={isDestructive ? Colors.error : Colors.primary} />
+    const SettingsItem = ({ icon, label, value, onPress, isDestructive = false, rightElement }: any) => (
+        <TouchableOpacity style={[styles.item, { backgroundColor: activeColors.surface }]} onPress={onPress}>
+            <View style={[styles.itemIcon, { backgroundColor: isDestructive ? 'rgba(239, 68, 68, 0.1)' : activeColors.surfaceSubtle }]}>
+                <Ionicons name={icon} size={20} color={isDestructive ? activeColors.error : activeColors.primary} />
             </View>
             <View style={styles.itemContent}>
-                <ThemedText type="default" style={{ color: isDestructive ? Colors.error : Colors.textSecondary, fontSize: 13 }}>{label}</ThemedText>
-                {value && <ThemedText type="defaultSemiBold" style={{ color: Colors.text }}>{value}</ThemedText>}
+                <ThemedText type="default" style={{ color: isDestructive ? activeColors.error : activeColors.textSecondary, fontSize: 13 }}>{label}</ThemedText>
+                {value && <ThemedText type="defaultSemiBold" style={{ color: activeColors.text }}>{value}</ThemedText>}
             </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.disabled} />
+            {rightElement ? rightElement : <Ionicons name="chevron-forward" size={20} color={activeColors.icon} />}
         </TouchableOpacity>
     );
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: activeColors.background }]}>
             <SafeAreaView edges={['top']} style={{ flex: 1 }}>
 
                 {/* Header with Close Button */}
                 <View style={styles.header}>
                     <ThemedText type="subtitle">Profile</ThemedText>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
-                        <Ionicons name="close" size={24} color={Colors.text} />
+                    <TouchableOpacity onPress={() => router.back()} style={[styles.closeBtn, { backgroundColor: activeColors.surfaceSubtle }]}>
+                        <Ionicons name="close" size={24} color={activeColors.text} />
                     </TouchableOpacity>
                 </View>
 
@@ -87,14 +92,14 @@ export default function ProfileScreen() {
                         <View style={{ flex: 1 }}>
                             <ThemedText type="title" style={{ fontSize: 22 }}>{user?.user_metadata?.full_name || 'Admin User'}</ThemedText>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                                <ThemedText type="default" style={{ color: Colors.textSecondary }}>{user?.email}</ThemedText>
+                                <ThemedText type="default" style={{ color: activeColors.textSecondary }}>{user?.email}</ThemedText>
                             </View>
                         </View>
                     </View>
 
                     {/* Shop Info Section */}
                     <View style={styles.section}>
-                        <ThemedText type="defaultSemiBold" style={styles.sectionHeader}>Workspace</ThemedText>
+                        <ThemedText type="defaultSemiBold" style={[styles.sectionHeader, { color: activeColors.textSecondary }]}>Workspace</ThemedText>
                         <Card style={styles.card}>
                             <SettingsItem
                                 icon="business"
@@ -102,7 +107,7 @@ export default function ProfileScreen() {
                                 value={shop?.name || 'Loading...'}
                                 onPress={() => { }}
                             />
-                            <View style={styles.divider} />
+                            <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
                             <SettingsItem
                                 icon="pricetags"
                                 label="Business Type"
@@ -114,12 +119,12 @@ export default function ProfileScreen() {
 
                     {/* App Settings */}
                     <View style={styles.section}>
-                        <ThemedText type="defaultSemiBold" style={styles.sectionHeader}>App Settings</ThemedText>
+                        <ThemedText type="defaultSemiBold" style={[styles.sectionHeader, { color: activeColors.textSecondary }]}>App Settings</ThemedText>
                         <Card style={styles.card}>
                             <SettingsItem icon="notifications-outline" label="Notifications" onPress={() => { }} />
-                            <View style={styles.divider} />
+                            <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
                             <SettingsItem icon="lock-closed-outline" label="Privacy & Security" onPress={() => { }} />
-                            <View style={styles.divider} />
+                            <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
                             <SettingsItem icon="help-circle-outline" label="Help & Support" onPress={() => { }} />
                         </Card>
                     </View>
@@ -136,7 +141,7 @@ export default function ProfileScreen() {
                         </Card>
                     </View>
 
-                    <ThemedText type="caption" style={{ textAlign: 'center', marginTop: 20, marginBottom: 40 }}>
+                    <ThemedText type="caption" style={{ textAlign: 'center', marginTop: 20, marginBottom: 40, color: activeColors.textSecondary }}>
                         Version 1.0.0 • MyShop Pro
                     </ThemedText>
 
@@ -149,7 +154,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     header: {
         flexDirection: 'row',
@@ -163,7 +167,6 @@ const styles = StyleSheet.create({
         position: 'absolute',
         right: 20,
         padding: 4,
-        backgroundColor: Colors.surfaceSubtle,
         borderRadius: 20,
     },
     scrollContent: {
@@ -182,7 +185,6 @@ const styles = StyleSheet.create({
     sectionHeader: {
         marginBottom: 8,
         marginLeft: 4,
-        color: Colors.textSecondary,
         fontSize: 13,
         textTransform: 'uppercase',
         letterSpacing: 1,
@@ -196,7 +198,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
-        backgroundColor: Colors.surface,
     },
     itemIcon: {
         width: 36,
@@ -212,7 +213,6 @@ const styles = StyleSheet.create({
     },
     divider: {
         height: 1,
-        backgroundColor: Colors.border,
         marginLeft: 68,
     }
 });

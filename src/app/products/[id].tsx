@@ -6,12 +6,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { Product, getProduct } from '@/services/productService';
 import { Colors } from '@/constants/Colors';
 import Button from '@/components/Button';
+import ThemedText from '@/components/ThemedText';
+import { useTheme } from '@/context/ThemeContext';
 
 export default function ProductDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const [product, setProduct] = useState<Product | null>(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
+
+    const { theme } = useTheme();
+    const activeColors = Colors[theme];
 
     const loadProduct = async () => {
         if (!id) return;
@@ -35,92 +40,124 @@ export default function ProductDetailScreen() {
 
     if (loading) {
         return (
-            <View style={styles.centered}>
-                <ActivityIndicator size="large" color={Colors.primary} />
+            <View style={[styles.centered, { backgroundColor: activeColors.background }]}>
+                <ActivityIndicator size="large" color={activeColors.primary} />
             </View>
         );
     }
 
     if (!product) {
         return (
-            <View style={styles.centered}>
-                <Text>Product not found</Text>
+            <View style={[styles.centered, { backgroundColor: activeColors.background }]}>
+                <ThemedText>Product not found</ThemedText>
             </View>
         );
     }
 
     const renderMovement = (item: any) => {
         const isPositive = item.quantity > 0;
-        const color = isPositive ? Colors.success : Colors.error;
-        const icon = isPositive ? 'arrow-down-circle' : 'arrow-up-circle'; // In vs Out
+
+        // Icon Logic: In (Positive) = Stock In (Amber), Out (Negative) = Sale (Green)
+        // Note: Usually In = Purchase, Out = Sale. 
+        // Wait, 'isPositive' usually means Stock Added (In). 
+        // Logic check: Purchases ADD stock. Sales REMOVE stock.
+        // So:
+        // Quantity > 0 (Stock In) -> Amber Icon (Purchase)
+        // Quantity < 0 (Stock Out) -> Green Icon (Sale)
+
+        const isStockIn = item.quantity > 0;
+
+        const iconColor = isStockIn ? '#F59E0B' : activeColors.success; // Amber for In, Green for Out (Sale)
+        const icon = isStockIn ? 'arrow-down-circle' : 'arrow-up-circle';
+
         const typeStr = item.type || 'unknown';
         const typeLabel = typeStr.charAt(0).toUpperCase() + typeStr.slice(1);
 
+        // Quantity Color: Green for + (Asset growth?), Black for - (Sale/Out?)
+        // Wait, app-wide logic:
+        // Cash Flow: Income (Sale) is Green. Expense is Black.
+        // Inventory Flow: Stock In is Cost (Black?). Stock Out is Sale (Green?).
+        // Let's align with Sales Screen:
+        // Sales (Money In, Stock Out) -> Green Text.
+        // Purchases (Money Out, Stock In) -> Black Text.
+
+        // This list shows STOCK movement.
+        // Sale -> -1 qty. App displays this as Sale.
+        // Purchase -> +10 qty. App displays this as Purchase.
+
+        // If item.quantity < 0 (Sale) -> Green Text (Revenue event).
+        // If item.quantity > 0 (Purchase/Return) -> Black Text (Cost event).
+
+        const qtyColor = !isStockIn ? activeColors.success : activeColors.text;
+        const qtyPrefix = isStockIn ? '+' : ''; // Explicitly show + for stock in
+
         return (
-            <View key={item.id} style={styles.historyItem}>
+            <View key={item.id} style={[styles.historyItem, { borderBottomColor: activeColors.border }]}>
                 <View style={styles.historyLeft}>
-                    <Ionicons name={icon} size={24} color={color} />
+                    <Ionicons name={icon} size={24} color={iconColor} />
                     <View style={{ marginLeft: 12 }}>
-                        <Text style={styles.historyType}>{typeLabel}</Text>
-                        <Text style={styles.historyDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
+                        <Text style={[styles.historyType, { color: activeColors.text }]}>{typeLabel}</Text>
+                        <Text style={[styles.historyDate, { color: activeColors.textSecondary }]}>{new Date(item.created_at).toLocaleDateString()}</Text>
                     </View>
                 </View>
-                <Text style={[styles.historyQty, { color }]}>
-                    {isPositive ? '+' : ''}{item.quantity}
+                <Text style={[styles.historyQty, { color: qtyColor }]}>
+                    {qtyPrefix}{item.quantity}
                 </Text>
             </View>
         );
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: activeColors.background }]}>
             <Stack.Screen
                 options={{
                     title: 'Product Details', // Clean title
                     headerLeft: () => (
                         <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 10 }}>
-                            <Ionicons name="arrow-back" size={24} color={Colors.text} />
+                            <Ionicons name="arrow-back" size={24} color={activeColors.text} />
                         </TouchableOpacity>
                     ),
                     headerShadowVisible: false,
-                    headerStyle: { backgroundColor: Colors.background },
+                    headerStyle: { backgroundColor: activeColors.background },
+                    headerTitleStyle: { color: activeColors.text },
+                    headerTintColor: activeColors.text, // ensure back arrow matches
                 }}
             />
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 {/* Main Details Card */}
-                <View style={styles.card}>
+                <View style={[styles.card, { backgroundColor: activeColors.surface, shadowColor: activeColors.shadowColor }]}>
                     <View style={styles.cardRow}>
                         {/* Left: Image */}
-                        <View style={styles.imagePlaceholder}>
-                            <Ionicons name="image-outline" size={40} color={Colors.textSecondary} />
-                            <Text style={styles.imagePlaceholderText}>No Image</Text>
+                        <View style={[styles.imagePlaceholder, { backgroundColor: activeColors.surfaceSubtle, borderColor: activeColors.border }]}>
+                            <Ionicons name="image-outline" size={40} color={activeColors.textSecondary} />
+                            <Text style={[styles.imagePlaceholderText, { color: activeColors.textSecondary }]}>No Image</Text>
                         </View>
 
                         {/* Right: Details */}
                         <View style={styles.detailsColumn}>
-                            <Text style={styles.productName}>{product.name}</Text>
+                            <Text style={[styles.productName, { color: activeColors.text }]}>{product.name}</Text>
 
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Stock:</Text>
-                                <Text style={[styles.stockCount, { color: (product.current_stock || 0) > 0 ? Colors.primary : Colors.error }]}>
-                                    {product.current_stock || 0} <Text style={styles.unit}>{product.unit}</Text>
+                                <Text style={[styles.detailLabel, { color: activeColors.textSecondary }]}>Stock:</Text>
+                                <Text style={[styles.stockCount, { color: (product.current_stock || 0) > 0 ? activeColors.primary : activeColors.error }]}>
+                                    {product.current_stock || 0} <Text style={[styles.unit, { color: activeColors.textSecondary }]}>{product.unit}</Text>
                                 </Text>
                             </View>
 
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Price:</Text>
-                                <Text style={styles.value}>₹{product.price ? product.price.toFixed(2) : '0.00'}</Text>
+                                <Text style={[styles.detailLabel, { color: activeColors.textSecondary }]}>Price:</Text>
+                                <Text style={[styles.value, { color: activeColors.text }]}>₹{product.price ? product.price.toFixed(2) : '0.00'}</Text>
                             </View>
 
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Category:</Text>
-                                <Text style={styles.value}>{product.category || 'N/A'}</Text>
+                                <Text style={[styles.detailLabel, { color: activeColors.textSecondary }]}>Category:</Text>
+                                <Text style={[styles.value, { color: activeColors.text }]}>{product.category || 'N/A'}</Text>
                             </View>
                         </View>
                     </View>
 
-                    <View style={styles.divider} />
+                    <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
 
                     <View style={styles.actions}>
                         <Button
@@ -134,12 +171,12 @@ export default function ProductDetailScreen() {
                 </View>
 
                 {/* Recent Transactions Section */}
-                <Text style={styles.sectionTitle}>Recent Transactions</Text>
-                <View style={styles.historyList}>
+                <Text style={[styles.sectionTitle, { color: activeColors.text }]}>Recent Transactions</Text>
+                <View style={[styles.historyList, { backgroundColor: activeColors.surface, shadowColor: activeColors.shadowColor }]}>
                     {product.stock_movements && product.stock_movements.length > 0 ? (
                         product.stock_movements.slice(0, 10).map(renderMovement)
                     ) : (
-                        <Text style={styles.emptyHistory}>No recent transactions</Text>
+                        <Text style={[styles.emptyHistory, { color: activeColors.textSecondary }]}>No recent transactions</Text>
                     )}
                 </View>
             </ScrollView>
@@ -150,7 +187,6 @@ export default function ProductDetailScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     scrollContent: {
         padding: 20,
@@ -165,24 +201,19 @@ const styles = StyleSheet.create({
         width: 100,
         height: 100,
         borderRadius: 12,
-        backgroundColor: Colors.inputBackground,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: Colors.border,
     },
     imagePlaceholderText: {
         fontSize: 10,
-        color: Colors.textSecondary,
         marginTop: 4,
         fontWeight: '600',
     },
     card: {
-        backgroundColor: Colors.surface,
         borderRadius: 20,
         padding: 20,
         marginBottom: 24,
-        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 8,
@@ -201,7 +232,6 @@ const styles = StyleSheet.create({
     productName: {
         fontSize: 20,
         fontWeight: '700',
-        color: Colors.text,
         marginBottom: 8,
         lineHeight: 24,
     },
@@ -212,7 +242,6 @@ const styles = StyleSheet.create({
     },
     detailLabel: {
         fontSize: 14,
-        color: Colors.textSecondary,
         width: 70, // Fixed width for alignment
     },
     stockCount: {
@@ -222,17 +251,14 @@ const styles = StyleSheet.create({
     unit: {
         fontSize: 12,
         fontWeight: '500',
-        color: Colors.textSecondary,
     },
     divider: {
         height: 1,
-        backgroundColor: Colors.border,
         marginBottom: 16,
         opacity: 0.5,
     },
     value: {
         fontSize: 16,
-        color: Colors.text,
         fontWeight: '600',
     },
     actions: {
@@ -241,15 +267,12 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         fontWeight: '700',
-        color: Colors.text,
         marginBottom: 16,
         marginLeft: 4,
     },
     historyList: {
-        backgroundColor: Colors.surface,
         borderRadius: 20,
         overflow: 'hidden',
-        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 8,
@@ -261,7 +284,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 16,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
     },
     historyLeft: {
         flexDirection: 'row',
@@ -270,12 +292,10 @@ const styles = StyleSheet.create({
     historyType: {
         fontSize: 15,
         fontWeight: '600',
-        color: Colors.text,
         marginBottom: 2,
     },
     historyDate: {
         fontSize: 12,
-        color: Colors.textSecondary,
     },
     historyQty: {
         fontSize: 16,
@@ -283,7 +303,6 @@ const styles = StyleSheet.create({
     },
     emptyHistory: {
         textAlign: 'center',
-        color: Colors.textSecondary,
         padding: 32,
         fontStyle: 'italic',
     },

@@ -9,6 +9,7 @@ import Button from '@/components/Button';
 import { Colors } from '@/constants/Colors';
 import ThemedText from '@/components/ThemedText';
 import { Picker } from '@react-native-picker/picker'; // Optional if picker is installed, otherwise simple select
+import { useThemeColor } from '@/hooks/useThemeColor';
 
 export default function PurchaseScreen() {
     const [products, setProducts] = useState<Product[]>([]);
@@ -18,6 +19,12 @@ export default function PurchaseScreen() {
     const [supplier, setSupplier] = useState('');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+
+    const backgroundColor = useThemeColor({}, 'background');
+    const surface = useThemeColor({}, 'surface');
+    const surfaceSubtle = useThemeColor({}, 'surfaceSubtle');
+    const primary = useThemeColor({}, 'primary');
+    const border = useThemeColor({}, 'border');
 
     useEffect(() => {
         loadProducts();
@@ -72,13 +79,13 @@ export default function PurchaseScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor }]}>
             <ScrollView contentContainerStyle={styles.content}>
                 <Stack.Screen options={{ title: 'Add Stock / Purchase' }} />
 
                 <View style={styles.form}>
                     <ThemedText type="defaultSemiBold" style={{ marginBottom: 8 }}>Select Product</ThemedText>
-                    <View style={styles.pickerContainer}>
+                    <View style={[styles.pickerContainer, { borderColor: border, backgroundColor: surface }]}>
                         <Picker
                             selectedValue={selectedProduct}
                             onValueChange={(itemValue: string) => handleProductChange(itemValue)}
@@ -113,9 +120,9 @@ export default function PurchaseScreen() {
                         placeholder="e.g. ABC Suppliers"
                     />
 
-                    <View style={styles.summary}>
+                    <View style={[styles.summary, { backgroundColor: surfaceSubtle }]}>
                         <ThemedText type="default">Total Cost:</ThemedText>
-                        <ThemedText type="subtitle" style={{ color: Colors.primary }}>
+                        <ThemedText type="subtitle" style={{ color: primary }}>
                             ₹{((parseFloat(quantity) || 0) * (parseFloat(unitCost) || 0)).toFixed(2)}
                         </ThemedText>
                     </View>
@@ -135,7 +142,6 @@ export default function PurchaseScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.white,
     },
     content: {
         padding: 20,
@@ -145,10 +151,8 @@ const styles = StyleSheet.create({
     },
     pickerContainer: {
         borderWidth: 1,
-        borderColor: Colors.border,
         borderRadius: 12,
         marginBottom: 8,
-        backgroundColor: Colors.surface,
     },
     marginTop: {
         marginTop: 20,
@@ -158,7 +162,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: 16,
-        backgroundColor: Colors.surfaceSubtle,
         borderRadius: 12,
         marginTop: 8,
     }

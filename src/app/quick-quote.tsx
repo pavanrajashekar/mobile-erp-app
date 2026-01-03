@@ -12,6 +12,7 @@ import { Product } from '@/services/productService';
 import { processSale, CartItem } from '@/services/billingService';
 import { createAndSharePDF } from '@/services/InvoiceGenerator';
 import { getCurrentShopId, getShopDetails } from '@/services/shopService';
+import { useTheme } from '@/context/ThemeContext';
 
 export default function QuickQuoteScreen() {
     const router = useRouter();
@@ -20,6 +21,8 @@ export default function QuickQuoteScreen() {
     const [items, setItems] = useState<CartItem[]>([]);
     const [modalVisible, setModalVisible] = useState(false);
     const [loading, setLoading] = useState(false);
+    const { theme } = useTheme();
+    const activeColors = Colors[theme];
 
     const handleSelectProduct = (product: Product) => {
         setItems(current => {
@@ -111,10 +114,10 @@ export default function QuickQuoteScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
+        <SafeAreaView style={[styles.container, { backgroundColor: activeColors.background }]}>
+            <View style={[styles.header, { backgroundColor: activeColors.background, borderBottomColor: activeColors.border }]}>
                 <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
-                    <Ionicons name="arrow-back" size={24} color={Colors.text} />
+                    <Ionicons name="arrow-back" size={24} color={activeColors.text} />
                 </TouchableOpacity>
                 <ThemedText type="title">New Quote</ThemedText>
             </View>
@@ -124,14 +127,16 @@ export default function QuickQuoteScreen() {
                 <Card style={styles.section}>
                     <ThemedText type="defaultSemiBold" style={{ marginBottom: 12 }}>Customer Details (Optional)</ThemedText>
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: activeColors.surfaceSubtle, borderColor: activeColors.border, color: activeColors.text }]}
                         placeholder="Customer Name"
+                        placeholderTextColor={activeColors.textSecondary}
                         value={customerName}
                         onChangeText={setCustomerName}
                     />
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: activeColors.surfaceSubtle, borderColor: activeColors.border, color: activeColors.text }]}
                         placeholder="Phone Number"
+                        placeholderTextColor={activeColors.textSecondary}
                         keyboardType="phone-pad"
                         value={customerPhone}
                         onChangeText={setCustomerPhone}
@@ -142,13 +147,13 @@ export default function QuickQuoteScreen() {
                 <View style={styles.itemsHeader}>
                     <ThemedText type="defaultSemiBold">Items</ThemedText>
                     <TouchableOpacity onPress={() => setModalVisible(true)}>
-                        <ThemedText type="link">+ Add Item</ThemedText>
+                        <ThemedText type="link" style={{ color: activeColors.primary }}>+ Add Item</ThemedText>
                     </TouchableOpacity>
                 </View>
 
                 {items.length === 0 ? (
-                    <View style={styles.emptyState}>
-                        <ThemedText style={{ color: Colors.textSecondary }}>No items added yet</ThemedText>
+                    <View style={[styles.emptyState, { borderColor: activeColors.border }]}>
+                        <ThemedText style={{ color: activeColors.textSecondary }}>No items added yet</ThemedText>
                     </View>
                 ) : (
                     items.map(item => (
@@ -157,9 +162,9 @@ export default function QuickQuoteScreen() {
                                 <View style={{ flex: 1 }}>
                                     <ThemedText type="defaultSemiBold">{item.product.name}</ThemedText>
                                     <View style={styles.priceRow}>
-                                        <Text style={{ color: Colors.textSecondary }}>₹</Text>
+                                        <Text style={{ color: activeColors.textSecondary }}>₹</Text>
                                         <TextInput
-                                            style={styles.priceInput}
+                                            style={[styles.priceInput, { borderBottomColor: activeColors.border, color: activeColors.text }]}
                                             value={item.price.toString()}
                                             onChangeText={(t) => updatePrice(item.product.id, t)}
                                             keyboardType="numeric"
@@ -169,16 +174,16 @@ export default function QuickQuoteScreen() {
 
                                 <View style={styles.qtyControl}>
                                     <TouchableOpacity onPress={() => updateQuantity(item.product.id, -1)}>
-                                        <Ionicons name="remove-circle-outline" size={24} color={Colors.primary} />
+                                        <Ionicons name="remove-circle-outline" size={24} color={activeColors.primary} />
                                     </TouchableOpacity>
-                                    <Text style={styles.qtyText}>{item.quantity}</Text>
+                                    <Text style={[styles.qtyText, { color: activeColors.text }]}>{item.quantity}</Text>
                                     <TouchableOpacity onPress={() => updateQuantity(item.product.id, 1)}>
-                                        <Ionicons name="add-circle-outline" size={24} color={Colors.primary} />
+                                        <Ionicons name="add-circle-outline" size={24} color={activeColors.primary} />
                                     </TouchableOpacity>
                                 </View>
 
                                 <TouchableOpacity onPress={() => removeItem(item.product.id)} style={{ marginLeft: 10 }}>
-                                    <Ionicons name="trash-outline" size={20} color={Colors.error} />
+                                    <Ionicons name="trash-outline" size={20} color={activeColors.error} />
                                 </TouchableOpacity>
                             </View>
                         </Card>
@@ -187,7 +192,7 @@ export default function QuickQuoteScreen() {
 
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, { backgroundColor: activeColors.background, borderTopColor: activeColors.border }]}>
                 <View style={styles.totalRow}>
                     <ThemedText>Total Amount</ThemedText>
                     <ThemedText type="title">₹{totalAmount.toFixed(2)}</ThemedText>
@@ -212,15 +217,12 @@ export default function QuickQuoteScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 20,
-        backgroundColor: Colors.background,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
     },
     content: {
         padding: 16,
@@ -231,11 +233,9 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     input: {
-        backgroundColor: Colors.inputBackground,
         padding: 12,
         borderRadius: 8,
         borderWidth: 1,
-        borderColor: Colors.border,
         marginBottom: 10,
         fontSize: 16,
     },
@@ -249,7 +249,6 @@ const styles = StyleSheet.create({
         padding: 30,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: Colors.border,
         borderRadius: 8,
         borderStyle: 'dashed',
     },
@@ -268,7 +267,6 @@ const styles = StyleSheet.create({
     },
     priceInput: {
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
         padding: 0,
         minWidth: 50,
         marginLeft: 4,
@@ -290,10 +288,8 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: Colors.white,
         padding: 20,
         borderTopWidth: 1,
-        borderTopColor: Colors.border,
         paddingBottom: 30,
     },
     totalRow: {

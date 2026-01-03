@@ -3,6 +3,7 @@ import { View, StyleSheet, ActivityIndicator, Animated, Easing } from 'react-nat
 import { Colors } from '@/constants/Colors';
 import ThemedText from './ThemedText';
 import { Ionicons } from '@expo/vector-icons';
+import { useThemeColor } from '@/hooks/useThemeColor';
 
 interface LoadingStateProps {
     message?: string;
@@ -11,6 +12,11 @@ interface LoadingStateProps {
 
 export default function LoadingState({ message = 'Loading...', transparent = false }: LoadingStateProps) {
     const spinValue = useRef(new Animated.Value(0)).current;
+
+    const background = useThemeColor({}, 'background');
+    const primary = useThemeColor({}, 'primary');
+    const surfaceSubtle = useThemeColor({}, 'surfaceSubtle');
+    const textSecondary = useThemeColor({}, 'textSecondary');
 
     useEffect(() => {
         Animated.loop(
@@ -31,25 +37,25 @@ export default function LoadingState({ message = 'Loading...', transparent = fal
     if (transparent) {
         return (
             <View style={styles.containerTransparent}>
-                <ActivityIndicator size="large" color={Colors.primary} />
+                <ActivityIndicator size="large" color={primary} />
             </View>
         );
     }
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: background }]}>
             <View style={styles.content}>
                 {/* Custom Spinner Composition */}
                 <View style={styles.spinnerContainer}>
                     {/* Static outer ring */}
-                    <View style={styles.ringBackground} />
+                    <View style={[styles.ringBackground, { borderColor: surfaceSubtle }]} />
                     {/* Animated spinner */}
                     <Animated.View style={{ transform: [{ rotate: spin }] }}>
-                        <Ionicons name="sync" size={48} color={Colors.primary} />
+                        <Ionicons name="sync" size={48} color={primary} />
                     </Animated.View>
                 </View>
 
-                <ThemedText type="defaultSemiBold" style={styles.text}>{message}</ThemedText>
+                <ThemedText type="defaultSemiBold" style={[styles.text, { color: textSecondary }]}>{message}</ThemedText>
             </View>
         </View>
     );
@@ -60,7 +66,6 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.background,
     },
     containerTransparent: {
         flex: 1,
@@ -85,10 +90,8 @@ const styles = StyleSheet.create({
         height: 60,
         borderRadius: 30,
         borderWidth: 4,
-        borderColor: Colors.surfaceSubtle,
     },
     text: {
-        color: Colors.textSecondary,
         letterSpacing: 1,
     }
 });

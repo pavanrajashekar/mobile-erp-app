@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { Platform, View, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/context/ThemeContext';
 import { useState } from 'react';
 import QuickActionModal from '@/components/QuickActionModal';
 import AddExpenseModal from '@/components/AddExpenseModal';
@@ -9,36 +10,37 @@ import AddExpenseModal from '@/components/AddExpenseModal';
 export default function TabsLayout() {
     const [quickActionVisible, setQuickActionVisible] = useState(false);
     const [expenseModalVisible, setExpenseModalVisible] = useState(false);
+    const { theme } = useTheme();
+    const activeColors = Colors[theme];
 
     return (
         <>
             <Tabs
                 screenOptions={{
                     headerShown: false,
+                    sceneStyle: { backgroundColor: activeColors.background }, // Fix for white corners in dark mode
                     tabBarStyle: {
-                        backgroundColor: Colors.white,
-                        height: Platform.OS === 'ios' ? 115 : 95,
-                        paddingBottom: Platform.OS === 'ios' ? 35 : 20,
-                        paddingTop: 10,
+                        backgroundColor: activeColors.surface,
+                        height: Platform.OS === 'ios' ? 108 : 88,
+                        paddingBottom: Platform.OS === 'ios' ? 38 : 18,
+                        paddingTop: 6,
                         borderTopWidth: 0,
-                        ...Colors.shadow,
-                        borderTopLeftRadius: 20,
-                        borderTopRightRadius: 20,
+                        shadowColor: activeColors.shadowColor,
+                        shadowOffset: { width: 0, height: -4 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 8,
+                        elevation: 8,
                     },
-                    tabBarShowLabel: true, // Show labels
-                    tabBarActiveTintColor: Colors.primary,
-                    tabBarInactiveTintColor: Colors.disabled,
+                    tabBarShowLabel: false,
+                    tabBarActiveTintColor: activeColors.tabIconSelected,
+                    tabBarInactiveTintColor: activeColors.tabIconDefault,
                     tabBarItemStyle: {
                         justifyContent: 'center',
                         alignItems: 'center',
                         paddingVertical: 4,
                     },
-                    tabBarLabelStyle: {
-                        marginTop: 4,
-                        fontSize: 12,
-                        fontWeight: '500',
-                    }
                 }}
+
             >
                 <Tabs.Screen
                     name="dashboard"
@@ -65,7 +67,7 @@ export default function TabsLayout() {
                     name="add_action"
                     options={{
                         title: '',
-                        tabBarLabel: () => null, // Hide label for plus button
+                        tabBarLabel: () => null,
                         tabBarIcon: ({ color, focused }) => (
                             <View />
                         ),
@@ -77,6 +79,7 @@ export default function TabsLayout() {
                                     flex: 1,
                                     justifyContent: 'center',
                                     alignItems: 'center',
+                                    marginBottom: 4, // Slight visual lift relative to others if needed, or just alignment
                                 }}
                                 activeOpacity={0.8}
                             >
@@ -85,10 +88,13 @@ export default function TabsLayout() {
                                         width: 50,
                                         height: 50,
                                         borderRadius: 25,
-                                        backgroundColor: Colors.primary,
+                                        backgroundColor: activeColors.primary,
                                         justifyContent: 'center',
                                         alignItems: 'center',
-                                        ...Colors.shadow,
+                                        shadowColor: activeColors.shadowColor,
+                                        shadowOffset: { width: 0, height: 4 },
+                                        shadowOpacity: 0.3,
+                                        shadowRadius: 8,
                                         elevation: 4,
                                     }}
                                 >
@@ -125,7 +131,6 @@ export default function TabsLayout() {
                     }}
                 />
 
-                {/* Hidden Tabs (like Profile if it needs to be here, though we moved it) */}
             </Tabs>
 
             <QuickActionModal
@@ -138,8 +143,6 @@ export default function TabsLayout() {
                 visible={expenseModalVisible}
                 onClose={() => setExpenseModalVisible(false)}
                 onSave={() => {
-                    // Ideally refresh dashboard, but global refresh is harder.
-                    // For now, it just saves to DB. Dashboard handles its own refresh via focus effect.
                     setExpenseModalVisible(false);
                 }}
             />

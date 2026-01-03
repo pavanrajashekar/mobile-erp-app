@@ -10,12 +10,22 @@ import Button from '@/components/Button';
 import { Ionicons } from '@expo/vector-icons';
 import { createAndSharePDF } from '@/services/InvoiceGenerator';
 import { getShopDetails } from '@/services/shopService';
+import { useThemeColor } from '@/hooks/useThemeColor';
 
 export default function InvoiceDetailScreen() {
     const { id } = useLocalSearchParams();
     const [sale, setSale] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [sharing, setSharing] = useState(false);
+
+    // Theme Colors
+    const backgroundColor = useThemeColor({}, 'background');
+    const surface = useThemeColor({}, 'surface');
+    const primary = useThemeColor({}, 'primary');
+    const border = useThemeColor({}, 'border');
+    const textSecondary = useThemeColor({}, 'textSecondary');
+    const success = useThemeColor({}, 'success');
+    const warning = useThemeColor({}, 'warning');
 
     useEffect(() => {
         if (id) fetchSaleDetails();
@@ -113,7 +123,7 @@ export default function InvoiceDetailScreen() {
     if (loading) {
         return (
             <View style={styles.centered}>
-                <ActivityIndicator size="large" color={Colors.primary} />
+                <ActivityIndicator size="large" color={primary} />
             </View>
         );
     }
@@ -127,10 +137,10 @@ export default function InvoiceDetailScreen() {
     }
 
     const isQuote = sale.status === 'quote';
-    const statusColor = isQuote ? Colors.warning : Colors.success;
+    const statusColor = isQuote ? warning : success;
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor }]}>
             <Stack.Screen options={{ title: isQuote ? 'Quote Details' : 'Invoice Details' }} />
 
             <ScrollView contentContainerStyle={styles.content}>
@@ -152,19 +162,19 @@ export default function InvoiceDetailScreen() {
                         </View>
                     </View>
 
-                    <View style={styles.divider} />
+                    <View style={[styles.divider, { backgroundColor: border }]} />
 
                     <View style={styles.totalSection}>
-                        <ThemedText style={{ color: Colors.textSecondary }}>Total Amount</ThemedText>
+                        <ThemedText style={{ color: textSecondary }}>Total Amount</ThemedText>
                         <ThemedText type="title">₹{sale.total_amount?.toFixed(2)}</ThemedText>
                     </View>
                 </Card>
 
                 {/* Items List */}
                 <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Items</ThemedText>
-                <View style={styles.itemsContainer}>
+                <View style={[styles.itemsContainer, { backgroundColor: surface }]}>
                     {sale.sale_items?.map((item: any) => (
-                        <View key={item.id} style={styles.itemRow}>
+                        <View key={item.id} style={[styles.itemRow, { borderBottomColor: border }]}>
                             <View style={{ flex: 1 }}>
                                 <ThemedText type="defaultSemiBold">{item.products?.name}</ThemedText>
                                 <ThemedText type="caption">
@@ -181,7 +191,7 @@ export default function InvoiceDetailScreen() {
             </ScrollView>
 
             {/* Footer Action */}
-            <View style={styles.footer}>
+            <View style={[styles.footer, { backgroundColor: surface, borderTopColor: border }]}>
                 <Button
                     title={sharing ? "Generating PDF..." : "Share PDF"}
                     onPress={handleSharePDF}
@@ -197,7 +207,6 @@ export default function InvoiceDetailScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     centered: {
         flex: 1,
@@ -227,7 +236,6 @@ const styles = StyleSheet.create({
     },
     divider: {
         height: 1,
-        backgroundColor: Colors.border,
         marginVertical: 16,
     },
     totalSection: {
@@ -238,7 +246,6 @@ const styles = StyleSheet.create({
         marginLeft: 4,
     },
     itemsContainer: {
-        backgroundColor: Colors.white,
         borderRadius: 12,
         overflow: 'hidden',
     },
@@ -248,7 +255,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 16,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
     },
     footer: {
         position: 'absolute',
@@ -256,9 +262,7 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         padding: 16,
-        backgroundColor: Colors.white,
         borderTopWidth: 1,
-        borderTopColor: Colors.border,
         paddingBottom: 30,
     }
 });

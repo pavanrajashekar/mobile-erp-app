@@ -1,24 +1,40 @@
-import React from 'react';
-import { Text, StyleSheet, TextProps } from 'react-native';
-import { Colors } from '../constants/Colors';
+import { Text, type TextProps, StyleSheet } from 'react-native';
+import { useThemeColor } from '@/hooks/useThemeColor';
 
-interface ThemedTextProps extends TextProps {
-    type?: 'title' | 'subtitle' | 'default' | 'defaultSemiBold' | 'caption' | 'link';
-}
+export type ThemedTextProps = TextProps & {
+    lightColor?: string;
+    darkColor?: string;
+    type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link' | 'caption';
+};
 
-export default function ThemedText({ style, type = 'default', ...props }: ThemedTextProps) {
+export default function ThemedText({
+    style,
+    lightColor,
+    darkColor,
+    type = 'default',
+    ...rest
+}: ThemedTextProps) {
+    const textColor = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+    const primaryColor = useThemeColor({ light: lightColor, dark: darkColor }, 'primary');
+    const secondaryColor = useThemeColor({ light: lightColor, dark: darkColor }, 'textSecondary');
+
+    let color = textColor;
+    if (type === 'link') color = primaryColor;
+    if (type === 'caption') color = secondaryColor;
+
     return (
         <Text
             style={[
-                styles.default,
-                type === 'title' && styles.title,
-                type === 'subtitle' && styles.subtitle,
-                type === 'defaultSemiBold' && styles.defaultSemiBold,
-                type === 'caption' && styles.caption,
-                type === 'link' && styles.link,
+                { color },
+                type === 'default' ? styles.default : undefined,
+                type === 'title' ? styles.title : undefined,
+                type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
+                type === 'subtitle' ? styles.subtitle : undefined,
+                type === 'link' ? styles.link : undefined,
+                type === 'caption' ? styles.caption : undefined,
                 style,
             ]}
-            {...props}
+            {...rest}
         />
     );
 }
@@ -27,32 +43,26 @@ const styles = StyleSheet.create({
     default: {
         fontSize: 16,
         lineHeight: 24,
-        color: Colors.text,
     },
     defaultSemiBold: {
         fontSize: 16,
         lineHeight: 24,
         fontWeight: '600',
-        color: Colors.text,
     },
     title: {
-        fontSize: 28, // Slightly reduced from 32 for better mobile fit often
+        fontSize: 28, // Strict Revenew styling
         fontWeight: 'bold',
         lineHeight: 32,
-        color: Colors.text,
     },
     subtitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: Colors.text,
-    },
-    caption: {
-        fontSize: 12, // Small helper text
-        color: Colors.textSecondary,
     },
     link: {
+        lineHeight: 30,
         fontSize: 16,
-        lineHeight: 24,
-        color: Colors.primary,
+    },
+    caption: {
+        fontSize: 12,
     },
 });

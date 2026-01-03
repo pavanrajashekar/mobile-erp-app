@@ -3,6 +3,8 @@ import { View, StyleSheet, TouchableOpacity, StyleProp, ViewStyle } from 'react-
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import ThemedText from './ThemedText';
+import { useThemeColor } from '@/hooks/useThemeColor';
+import { useTheme } from '@/context/ThemeContext';
 
 export type EmptyStateVariant = 'cart' | 'products' | 'transactions' | 'search' | 'generic' | 'wifi' | 'list';
 
@@ -23,6 +25,14 @@ export default function EmptyState({
     onAction,
     style
 }: EmptyStateProps) {
+    const { theme } = useTheme();
+    const primary = useThemeColor({}, 'primary');
+    const primaryLight = useThemeColor({}, 'primaryLight');
+    const success = useThemeColor({}, 'success');
+    const error = useThemeColor({}, 'error');
+    const warning = useThemeColor({}, 'warning');
+    const textSecondary = useThemeColor({}, 'textSecondary');
+    const surfaceSubtle = useThemeColor({}, 'surfaceSubtle');
 
     const getContent = () => {
         switch (variant) {
@@ -31,56 +41,56 @@ export default function EmptyState({
                     icon: 'cart-outline',
                     defaultTitle: 'Your cart is empty',
                     defaultDesc: 'Start adding products to create a sale or quote.',
-                    bg: '#e0f2fe', // Sky 100
-                    color: Colors.primary
+                    bg: theme === 'dark' ? surfaceSubtle : '#e0f2fe', // Sky 100
+                    color: primary
                 };
             case 'products':
                 return {
                     icon: 'cube-outline',
                     defaultTitle: 'No products yet',
                     defaultDesc: 'Add items to your inventory to start tracking stock.',
-                    bg: '#fef3c7', // Amber 100
-                    color: '#f59e0b' // Amber 500
+                    bg: theme === 'dark' ? surfaceSubtle : '#fef3c7', // Amber 100
+                    color: warning
                 };
             case 'transactions':
                 return {
                     icon: 'receipt-outline',
                     defaultTitle: 'No transactions',
                     defaultDesc: 'Sales and expenses will appear here once recorded.',
-                    bg: '#dcfce7', // Green 100
-                    color: Colors.success
+                    bg: theme === 'dark' ? surfaceSubtle : '#dcfce7', // Green 100
+                    color: success
                 };
             case 'search':
                 return {
                     icon: 'search-outline',
                     defaultTitle: 'No results found',
                     defaultDesc: 'Try adjusting your search criteria.',
-                    bg: '#f1f5f9', // Slate 100
-                    color: Colors.textSecondary
+                    bg: surfaceSubtle,
+                    color: textSecondary
                 };
             case 'wifi':
                 return {
                     icon: 'wifi-outline',
                     defaultTitle: 'You are offline',
                     defaultDesc: 'Check your internet connection and try again.',
-                    bg: '#fee2e2', // Red 100
-                    color: Colors.error
+                    bg: theme === 'dark' ? surfaceSubtle : '#fee2e2', // Red 100
+                    color: error
                 };
             case 'list':
                 return {
                     icon: 'list-outline',
                     defaultTitle: 'List is empty',
                     defaultDesc: 'There is nothing here right now.',
-                    bg: '#f3f4f6',
-                    color: Colors.textSecondary
+                    bg: surfaceSubtle,
+                    color: textSecondary
                 };
             default:
                 return {
                     icon: 'folder-open-outline',
                     defaultTitle: 'Nothing here',
                     defaultDesc: 'This screen is currently empty.',
-                    bg: '#f1f5f9',
-                    color: Colors.textSecondary
+                    bg: surfaceSubtle,
+                    color: textSecondary
                 };
         }
     };
@@ -95,12 +105,12 @@ export default function EmptyState({
             <ThemedText type="subtitle" style={styles.title}>
                 {title || content.defaultTitle}
             </ThemedText>
-            <ThemedText type="default" style={styles.description}>
+            <ThemedText type="default" style={[styles.description, { color: textSecondary }]}>
                 {description || content.defaultDesc}
             </ThemedText>
 
             {actionLabel && onAction && (
-                <TouchableOpacity style={styles.button} onPress={onAction} activeOpacity={0.8}>
+                <TouchableOpacity style={[styles.button, { backgroundColor: primary }]} onPress={onAction} activeOpacity={0.8}>
                     <ThemedText type="defaultSemiBold" style={styles.buttonText}>{actionLabel}</ThemedText>
                 </TouchableOpacity>
             )}
@@ -131,16 +141,18 @@ const styles = StyleSheet.create({
     },
     description: {
         textAlign: 'center',
-        color: Colors.textSecondary,
         marginBottom: 24,
         lineHeight: 22,
     },
     button: {
-        backgroundColor: Colors.primary,
         paddingVertical: 12,
         paddingHorizontal: 24,
         borderRadius: 30,
-        ...Colors.shadow,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
     buttonText: {
         color: 'white',

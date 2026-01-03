@@ -1,5 +1,7 @@
 import { Stack } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
+import { ShopProvider } from '../hooks/useShop';
+import { ThemeProvider } from '../context/ThemeContext';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
@@ -22,24 +24,26 @@ export default function RootLayout() {
     // so we return the Stack but the splash covers it.
 
     return (
-        <>
-            <StatusBar style="dark" />
-            <Stack screenOptions={{ headerShown: false }}>
-                {!user ? (
-                    <Stack.Screen name="(auth)" />
-                ) : (
-                    <>
-                        <Stack.Screen name="index" />
-                        <Stack.Screen
-                            name="profile"
-                            options={{
-                                presentation: 'modal',
-                                headerShown: false,
-                            }}
-                        />
-                    </>
-                )}
-            </Stack>
-        </>
+        <ThemeProvider>
+            <ShopProvider>
+                <StatusBar style="dark" />
+                <Stack screenOptions={{ headerShown: false }}>
+                    {!user ? (
+                        <Stack.Screen name="(auth)" />
+                    ) : (
+                        <>
+                            <Stack.Screen name="index" />
+                            <Stack.Screen
+                                name="profile"
+                                options={{
+                                    presentation: 'modal',
+                                    headerShown: false,
+                                }}
+                            />
+                        </>
+                    )}
+                </Stack>
+            </ShopProvider>
+        </ThemeProvider>
     );
 }

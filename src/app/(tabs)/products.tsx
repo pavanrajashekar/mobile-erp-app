@@ -9,12 +9,17 @@ import { Colors } from '@/constants/Colors';
 import ThemedText from '@/components/ThemedText';
 import LoadingState from '@/components/LoadingState';
 import EmptyState from '@/components/EmptyState';
+import { useThemeColor } from '@/hooks/useThemeColor';
 
 export default function ProductsScreen() {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const router = useRouter();
+
+    const backgroundColor = useThemeColor({}, 'background');
+    const primary = useThemeColor({}, 'primary');
+    const textSecondary = useThemeColor({}, 'textSecondary');
 
     const loadProducts = async () => {
         try {
@@ -41,11 +46,11 @@ export default function ProductsScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
+        <SafeAreaView style={[styles.container, { backgroundColor }]}>
+            <View style={[styles.header, { backgroundColor }]}>
                 <ThemedText type="title">Inventory</ThemedText>
                 <TouchableOpacity onPress={() => router.push('/products/purchase')}>
-                    <ThemedText type="defaultSemiBold" style={{ color: Colors.primary }}>+ Add Stock</ThemedText>
+                    <ThemedText type="defaultSemiBold" style={{ color: primary }}>+ Add Stock</ThemedText>
                 </TouchableOpacity>
             </View>
 
@@ -77,11 +82,9 @@ export default function ProductsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     header: {
         padding: 20,
-        backgroundColor: Colors.background,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -89,7 +92,7 @@ const styles = StyleSheet.create({
     list: {
         padding: 16,
         paddingTop: 0,
-        gap: 8, // Spacing between cards
+        gap: 8,
     },
     centered: {
         flex: 1,
@@ -98,7 +101,6 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 16,
-        color: Colors.textSecondary,
         textAlign: 'center',
     },
 });

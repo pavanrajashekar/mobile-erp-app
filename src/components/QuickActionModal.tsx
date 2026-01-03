@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
 import Card from './Card';
+import { useThemeColor } from '@/hooks/useThemeColor';
 
 interface QuickActionModalProps {
     visible: boolean;
@@ -15,6 +16,14 @@ interface QuickActionModalProps {
 export default function QuickActionModal({ visible, onClose, onAddExpense }: QuickActionModalProps) {
     const router = useRouter();
     const slideAnim = useRef(new Animated.Value(300)).current;
+
+    const surface = useThemeColor({}, 'surface');
+    const border = useThemeColor({}, 'border');
+    const shadowColor = useThemeColor({}, 'shadowColor');
+    const primary = useThemeColor({}, 'primary');
+    const primaryLight = useThemeColor({}, 'primaryLight');
+    const error = useThemeColor({}, 'error');
+    const errorLight = useThemeColor({}, 'errorLight'); // Assuming errorLight is available or mapped
 
     useEffect(() => {
         if (visible) {
@@ -35,13 +44,7 @@ export default function QuickActionModal({ visible, onClose, onAddExpense }: Qui
 
     const handleAction = (path: string) => {
         onClose();
-        // Tabs should be navigated to switch context
-        if (path.includes('(tabs)')) {
-            router.navigate(path as any);
-        } else {
-            // Other screens should be pushed
-            router.push(path as any);
-        }
+        router.push(path as any);
     };
 
     return (
@@ -49,19 +52,19 @@ export default function QuickActionModal({ visible, onClose, onAddExpense }: Qui
             <TouchableWithoutFeedback onPress={onClose}>
                 <View style={styles.overlay}>
                     <TouchableWithoutFeedback>
-                        <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
-                            <View style={styles.handle} />
+                        <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }], backgroundColor: surface, shadowColor: shadowColor }]}>
+                            <View style={[styles.handle, { backgroundColor: border }]} />
                             <ThemedText type="subtitle" style={styles.title}>Quick Actions</ThemedText>
 
                             <View style={styles.grid}>
                                 {/* New Sale */}
                                 <Card
                                     style={styles.actionCard}
-                                    onPress={() => handleAction('/(tabs)/billing')}
+                                    onPress={() => handleAction('/billing')}
                                     variant="flat"
                                 >
-                                    <View style={[styles.iconBox, { backgroundColor: Colors.primaryLight }]}>
-                                        <Ionicons name="cart" size={24} color={Colors.primary} />
+                                    <View style={[styles.iconBox, { backgroundColor: primaryLight }]}>
+                                        <Ionicons name="cart" size={24} color={primary} />
                                     </View>
                                     <ThemedText type="defaultSemiBold">New Sale</ThemedText>
                                 </Card>
@@ -99,8 +102,8 @@ export default function QuickActionModal({ visible, onClose, onAddExpense }: Qui
                                     }}
                                     variant="flat"
                                 >
-                                    <View style={[styles.iconBox, { backgroundColor: Colors.errorLight }]}>
-                                        <Ionicons name="wallet" size={24} color={Colors.error} />
+                                    <View style={[styles.iconBox, { backgroundColor: errorLight }]}>
+                                        <Ionicons name="wallet" size={24} color={error} />
                                     </View>
                                     <ThemedText type="defaultSemiBold">Expense</ThemedText>
                                 </Card>
@@ -120,17 +123,18 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     sheet: {
-        backgroundColor: Colors.surface,
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
         padding: 24,
         paddingBottom: 40,
-        ...Colors.shadow,
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 10,
     },
     handle: {
         width: 40,
         height: 4,
-        backgroundColor: Colors.border,
         borderRadius: 2,
         alignSelf: 'center',
         marginBottom: 24,

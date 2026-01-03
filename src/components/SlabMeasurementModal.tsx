@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, TextInput, A
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import Button from './Button';
+import { useThemeColor } from '@/hooks/useThemeColor';
 
 interface Slab {
     id: string;
@@ -31,6 +32,16 @@ export default function SlabMeasurementModal({ visible, onClose, onSave, product
     // Input State
     const [length, setLength] = useState('');
     const [width, setWidth] = useState('');
+
+    const background = useThemeColor({}, 'background');
+    const surface = useThemeColor({}, 'surface');
+    const border = useThemeColor({}, 'border');
+    const text = useThemeColor({}, 'text');
+    const textSecondary = useThemeColor({}, 'textSecondary');
+    const primary = useThemeColor({}, 'primary');
+    const success = useThemeColor({}, 'success');
+    const inputBackground = useThemeColor({}, 'surfaceSubtle'); // Assuming surfaceSubtle for inputs
+    const error = useThemeColor({}, 'error');
 
     useEffect(() => {
         if (visible) {
@@ -106,53 +117,54 @@ export default function SlabMeasurementModal({ visible, onClose, onSave, product
         <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.container}
+                style={[styles.container, { backgroundColor: background }]}
             >
                 {/* Header */}
-                <View style={styles.header}>
+                <View style={[styles.header, { backgroundColor: surface, borderBottomColor: border }]}>
                     <View>
-                        <Text style={styles.headerTitle}>Measurement Sheet</Text>
-                        <Text style={styles.headerSubtitle}>{productName}</Text>
+                        <Text style={[styles.headerTitle, { color: text }]}>Measurement Sheet</Text>
+                        <Text style={[styles.headerSubtitle, { color: textSecondary }]}>{productName}</Text>
                     </View>
                     <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                        <Ionicons name="close" size={24} color={Colors.text} />
+                        <Ionicons name="close" size={24} color={text} />
                     </TouchableOpacity>
                 </View>
 
                 {/* Target & Progress */}
-                <View style={styles.targetContainer}>
+                <View style={[styles.targetContainer, { backgroundColor: surface, borderBottomColor: border }]}>
                     <View style={styles.targetRow}>
-                        <Text style={styles.targetLabel}>Target (SF):</Text>
+                        <Text style={[styles.targetLabel, { color: text }]}>Target (SF):</Text>
                         <TextInput
-                            style={styles.targetInput}
+                            style={[styles.targetInput, { borderColor: border, color: text, backgroundColor: inputBackground }]}
                             value={targetArea}
                             onChangeText={setTargetArea}
                             placeholder="0"
+                            placeholderTextColor={textSecondary}
                             keyboardType="numeric"
                         />
                     </View>
 
-                    <View style={styles.progressBarBg}>
-                        <View style={[styles.progressBarFill, { width: `${Math.min(progress, 100)}%` }, progress >= 100 && { backgroundColor: Colors.success }]} />
+                    <View style={[styles.progressBarBg, { backgroundColor: border }]}>
+                        <View style={[styles.progressBarFill, { width: `${Math.min(progress, 100)}%`, backgroundColor: primary }, progress >= 100 && { backgroundColor: success }]} />
                     </View>
-                    <Text style={styles.progressText}>
+                    <Text style={[styles.progressText, { color: textSecondary }]}>
                         Total: {totalArea.toFixed(2)} Sq.Ft / {targetArea || '0'}
                     </Text>
                 </View>
 
                 {/* Input Area */}
-                <View style={styles.inputContainer}>
+                <View style={[styles.inputContainer, { backgroundColor: surface }]}>
                     {/* Unit Selector inside Input Area */}
                     <View style={styles.unitSelector}>
-                        <Text style={styles.unitLabel}>Input Unit:</Text>
-                        <View style={styles.unitButtons}>
+                        <Text style={[styles.unitLabel, { color: textSecondary }]}>Input Unit:</Text>
+                        <View style={[styles.unitButtons, { backgroundColor: inputBackground }]}>
                             {(['ft', 'in', 'cm'] as Unit[]).map((u) => (
                                 <TouchableOpacity
                                     key={u}
-                                    style={[styles.unitOption, unit === u && styles.unitOptionSelected]}
+                                    style={[styles.unitOption, unit === u && [styles.unitOptionSelected, { backgroundColor: surface }]]}
                                     onPress={() => handleUnitChange(u)}
                                 >
-                                    <Text style={[styles.unitText, unit === u && styles.unitTextSelected]}>
+                                    <Text style={[styles.unitText, { color: textSecondary }, unit === u && [styles.unitTextSelected, { color: primary }]]}>
                                         {u.toUpperCase()}
                                     </Text>
                                 </TouchableOpacity>
@@ -162,36 +174,38 @@ export default function SlabMeasurementModal({ visible, onClose, onSave, product
 
                     <View style={styles.inputRow}>
                         <View style={styles.inputWrapper}>
-                            <Text style={styles.validLabel}>Length</Text>
+                            <Text style={[styles.validLabel, { color: textSecondary }]}>Length</Text>
                             <TextInput
-                                style={styles.mainInput}
+                                style={[styles.mainInput, { borderColor: border, color: text, backgroundColor: inputBackground }]}
                                 value={length}
                                 onChangeText={setLength}
                                 placeholder="0.0"
+                                placeholderTextColor={textSecondary}
                                 keyboardType="numeric"
                             />
                         </View>
                         <View style={styles.inputWrapper}>
-                            <Text style={styles.validLabel}>Width</Text>
+                            <Text style={[styles.validLabel, { color: textSecondary }]}>Width</Text>
                             <TextInput
-                                style={styles.mainInput}
+                                style={[styles.mainInput, { borderColor: border, color: text, backgroundColor: inputBackground }]}
                                 value={width}
                                 onChangeText={setWidth}
                                 placeholder="0.0"
+                                placeholderTextColor={textSecondary}
                                 keyboardType="numeric"
                             />
                         </View>
-                        <TouchableOpacity style={styles.addBtn} onPress={addSlab}>
+                        <TouchableOpacity style={[styles.addBtn, { backgroundColor: primary }]} onPress={addSlab}>
                             <Ionicons name="add" size={32} color="white" />
                         </TouchableOpacity>
                     </View>
                 </View>
 
                 {/* List Header */}
-                <View style={styles.listHeader}>
-                    <Text style={[styles.headerCol, { width: 40 }]}>#</Text>
-                    <Text style={[styles.headerCol, { flex: 1 }]}>Dimensions</Text>
-                    <Text style={[styles.headerCol, { width: 80, textAlign: 'right' }]}>Sq.Ft</Text>
+                <View style={[styles.listHeader, { backgroundColor: inputBackground, borderBottomColor: border }]}>
+                    <Text style={[styles.headerCol, { width: 40, color: textSecondary }]}>#</Text>
+                    <Text style={[styles.headerCol, { flex: 1, color: textSecondary }]}>Dimensions</Text>
+                    <Text style={[styles.headerCol, { width: 80, textAlign: 'right', color: textSecondary }]}>Sq.Ft</Text>
                     <View style={{ width: 40 }} />
                 </View>
 
@@ -201,30 +215,30 @@ export default function SlabMeasurementModal({ visible, onClose, onSave, product
                     keyExtractor={item => item.id}
                     contentContainerStyle={styles.list}
                     renderItem={({ item, index }) => (
-                        <View style={styles.row}>
-                            <Text style={styles.rowIndex}>{slabs.length - index}</Text>
+                        <View style={[styles.row, { borderBottomColor: border }]}>
+                            <Text style={[styles.rowIndex, { color: textSecondary }]}>{slabs.length - index}</Text>
 
-                            <Text style={styles.dimText}>
+                            <Text style={[styles.dimText, { color: text }]}>
                                 {item.length} x {item.width}
-                                <Text style={styles.unitBadge}> {item.unit}</Text>
+                                <Text style={[styles.unitBadge, { color: textSecondary }]}> {item.unit}</Text>
                             </Text>
 
-                            <Text style={styles.areaText}>
+                            <Text style={[styles.areaText, { color: text }]}>
                                 {item.area.toFixed(2)}
                             </Text>
 
                             <TouchableOpacity onPress={() => removeSlab(item.id)} style={styles.deleteBtn}>
-                                <Ionicons name="trash-outline" size={20} color={Colors.error} />
+                                <Ionicons name="trash-outline" size={20} color={error} />
                             </TouchableOpacity>
                         </View>
                     )}
                     ListEmptyComponent={
-                        <Text style={styles.emptyText}>No items added.</Text>
+                        <Text style={[styles.emptyText, { color: textSecondary }]}>No items added.</Text>
                     }
                 />
 
                 {/* Footer */}
-                <View style={[styles.footer, { paddingBottom: Platform.OS === 'ios' ? 34 : 20 }]}>
+                <View style={[styles.footer, { backgroundColor: surface, borderTopColor: border, paddingBottom: Platform.OS === 'ios' ? 34 : 20 }]}>
                     <Button title={`Save Total: ${totalArea.toFixed(2)} Sq.Ft`} onPress={handleSave} />
                 </View>
             </KeyboardAvoidingView>
@@ -235,34 +249,27 @@ export default function SlabMeasurementModal({ visible, onClose, onSave, product
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     header: {
         padding: 20,
-        backgroundColor: Colors.white,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
     },
     headerTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: Colors.text,
     },
     headerSubtitle: {
         fontSize: 14,
-        color: Colors.textSecondary,
     },
     closeBtn: {
         padding: 4,
     },
     targetContainer: {
         padding: 16,
-        backgroundColor: Colors.white,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
     },
     targetRow: {
         flexDirection: 'row',
@@ -272,40 +279,33 @@ const styles = StyleSheet.create({
     },
     targetLabel: {
         fontSize: 16,
-        color: Colors.text,
         marginRight: 10,
     },
     targetInput: {
         borderWidth: 1,
-        borderColor: Colors.border,
         borderRadius: 4,
         padding: 6,
         minWidth: 80,
         textAlign: 'center',
         fontSize: 16,
-        backgroundColor: '#f9f9f9',
     },
     progressBarBg: {
         height: 6,
-        backgroundColor: Colors.border,
         borderRadius: 3,
         overflow: 'hidden',
         marginBottom: 4,
     },
     progressBarFill: {
         height: '100%',
-        backgroundColor: Colors.primary,
     },
     progressText: {
         fontSize: 14,
-        color: Colors.textSecondary,
         textAlign: 'center',
         marginTop: 4,
         fontWeight: '500'
     },
     inputContainer: {
         padding: 16,
-        backgroundColor: Colors.white,
         marginBottom: 10,
         gap: 12,
         elevation: 2,
@@ -322,11 +322,9 @@ const styles = StyleSheet.create({
     },
     unitLabel: {
         fontSize: 14,
-        color: Colors.textSecondary,
     },
     unitButtons: {
         flexDirection: 'row',
-        backgroundColor: Colors.inputBackground,
         borderRadius: 8,
         padding: 2,
     },
@@ -336,7 +334,6 @@ const styles = StyleSheet.create({
         borderRadius: 6,
     },
     unitOptionSelected: {
-        backgroundColor: Colors.white,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
@@ -346,10 +343,8 @@ const styles = StyleSheet.create({
     unitText: {
         fontSize: 12,
         fontWeight: '600',
-        color: Colors.textSecondary,
     },
     unitTextSelected: {
-        color: Colors.primary,
     },
     inputRow: {
         flexDirection: 'row',
@@ -361,19 +356,15 @@ const styles = StyleSheet.create({
     },
     validLabel: {
         fontSize: 12,
-        color: Colors.textSecondary,
         marginBottom: 4
     },
     mainInput: {
         borderWidth: 1,
-        borderColor: Colors.border,
         borderRadius: 8,
         padding: 12,
         fontSize: 18,
-        backgroundColor: '#f9f9f9',
     },
     addBtn: {
-        backgroundColor: Colors.primary,
         width: 50,
         height: 50,
         borderRadius: 25,
@@ -385,14 +376,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         paddingHorizontal: 16,
         paddingVertical: 10,
-        backgroundColor: '#f0f0f0',
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
         alignItems: 'center',
     },
     headerCol: {
         fontWeight: '600',
-        color: Colors.textSecondary,
         fontSize: 13,
     },
     list: {
@@ -404,23 +392,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0'
     },
     rowIndex: {
         width: 40,
         fontSize: 14,
-        color: Colors.textSecondary,
         fontWeight: '500',
     },
     dimText: {
         flex: 1,
         fontSize: 16,
-        color: Colors.text,
         fontWeight: '500'
     },
     unitBadge: {
         fontSize: 12,
-        color: Colors.textSecondary,
         fontWeight: 'normal'
     },
     areaText: {
@@ -428,7 +412,6 @@ const styles = StyleSheet.create({
         textAlign: 'right',
         fontSize: 16,
         fontWeight: 'bold',
-        color: Colors.text,
         paddingRight: 10,
     },
     deleteBtn: {
@@ -437,14 +420,11 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         textAlign: 'center',
-        color: Colors.textSecondary,
         marginTop: 40
     },
     footer: {
         padding: 20,
-        backgroundColor: Colors.white,
         borderTopWidth: 1,
-        borderTopColor: Colors.border,
         position: 'absolute',
         bottom: 0,
         left: 0,

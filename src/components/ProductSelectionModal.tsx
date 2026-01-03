@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { fetchProducts, Product } from '@/services/productService';
 import ThemedText from '@/components/ThemedText';
+import { useThemeColor } from '@/hooks/useThemeColor';
 
 interface ProductSelectionModalProps {
     visible: boolean;
@@ -15,6 +16,14 @@ export default function ProductSelectionModal({ visible, onClose, onSelectProduc
     const [products, setProducts] = useState<Product[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(false);
+
+    // Theme Colors
+    const background = useThemeColor({}, 'background');
+    const surface = useThemeColor({}, 'surface');
+    const border = useThemeColor({}, 'border');
+    const text = useThemeColor({}, 'text');
+    const textSecondary = useThemeColor({}, 'textSecondary');
+    const primary = useThemeColor({}, 'primary');
 
     useEffect(() => {
         if (visible) {
@@ -47,20 +56,21 @@ export default function ProductSelectionModal({ visible, onClose, onSelectProduc
             presentationStyle="pageSheet"
             onRequestClose={onClose}
         >
-            <View style={styles.modalContainer}>
-                <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>Select Product</Text>
+            <View style={[styles.modalContainer, { backgroundColor: background }]}>
+                <View style={[styles.modalHeader, { backgroundColor: surface, borderBottomColor: border }]}>
+                    <Text style={[styles.modalTitle, { color: text }]}>Select Product</Text>
                     <TouchableOpacity onPress={onClose}>
-                        <Text style={styles.closeText}>Close</Text>
+                        <Text style={[styles.closeText, { color: primary }]}>Close</Text>
                     </TouchableOpacity>
                 </View>
 
                 {/* Search Bar */}
-                <View style={styles.searchContainer}>
-                    <Ionicons name="search" size={20} color={Colors.textSecondary} style={styles.searchIcon} />
+                <View style={[styles.searchContainer, { backgroundColor: surface, borderBottomColor: border }]}>
+                    <Ionicons name="search" size={20} color={textSecondary} style={styles.searchIcon} />
                     <TextInput
-                        style={styles.searchInput}
+                        style={[styles.searchInput, { color: text }]}
                         placeholder="Search products..."
+                        placeholderTextColor={textSecondary}
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                         autoFocus={false}
@@ -69,7 +79,7 @@ export default function ProductSelectionModal({ visible, onClose, onSelectProduc
 
                 {loading ? (
                     <View style={styles.centered}>
-                        <ActivityIndicator color={Colors.primary} />
+                        <ActivityIndicator color={primary} />
                     </View>
                 ) : (
                     <FlatList
@@ -77,20 +87,20 @@ export default function ProductSelectionModal({ visible, onClose, onSelectProduc
                         keyExtractor={item => item.id}
                         ListEmptyComponent={
                             <View style={styles.centered}>
-                                <Text style={{ color: Colors.textSecondary }}>
+                                <Text style={{ color: textSecondary }}>
                                     {products.length === 0 ? "No products found." : "No matching products."}
                                 </Text>
                             </View>
                         }
                         renderItem={({ item }) => (
-                            <TouchableOpacity style={styles.productRow} onPress={() => onSelectProduct(item)}>
+                            <TouchableOpacity style={[styles.productRow, { backgroundColor: surface, borderBottomColor: border }]} onPress={() => onSelectProduct(item)}>
                                 <View>
-                                    <Text style={styles.productRowName}>{item.name}</Text>
-                                    <Text style={{ fontSize: 12, color: Colors.textSecondary }}>
+                                    <Text style={[styles.productRowName, { color: text }]}>{item.name}</Text>
+                                    <Text style={{ fontSize: 12, color: textSecondary }}>
                                         {item.price ? `₹${item.price}` : 'No Price'} • {item.unit || 'Unit'} • Stock: {item.current_stock || 0}
                                     </Text>
                                 </View>
-                                <Ionicons name="add-circle-outline" size={24} color={Colors.primary} />
+                                <Ionicons name="add-circle-outline" size={24} color={primary} />
                             </TouchableOpacity>
                         )}
                     />
@@ -103,34 +113,27 @@ export default function ProductSelectionModal({ visible, onClose, onSelectProduc
 const styles = StyleSheet.create({
     modalContainer: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     modalHeader: {
         padding: 20,
-        backgroundColor: Colors.white,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: Colors.text,
     },
     closeText: {
-        color: Colors.primary,
         fontSize: 16,
     },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.white,
         paddingHorizontal: 16,
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
     },
     searchIcon: {
         marginRight: 8,
@@ -138,21 +141,17 @@ const styles = StyleSheet.create({
     searchInput: {
         flex: 1,
         fontSize: 16,
-        color: Colors.text,
         height: 40,
     },
     productRow: {
         padding: 16,
-        backgroundColor: Colors.white,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
     productRowName: {
         fontSize: 16,
-        color: Colors.text,
         marginBottom: 4,
     },
     centered: {

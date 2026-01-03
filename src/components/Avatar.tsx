@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle, StyleProp } from 'react-native';
-import { Colors } from '@/constants/Colors';
+import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { useThemeColor } from '@/hooks/useThemeColor';
 import ThemedText from './ThemedText';
 
 interface AvatarProps {
@@ -10,6 +10,10 @@ interface AvatarProps {
 }
 
 export default function Avatar({ name, size = 48, style }: AvatarProps) {
+    const backgroundColor = useThemeColor({}, 'surface');
+    const textColor = useThemeColor({}, 'primary');
+    const shadowColor = useThemeColor({}, 'shadowColor');
+
     const getInitials = (n?: string | null) => {
         if (!n) return 'AD';
         const parts = n.split(' ');
@@ -22,10 +26,16 @@ export default function Avatar({ name, size = 48, style }: AvatarProps) {
     return (
         <View style={[
             styles.container,
-            { width: size, height: size, borderRadius: size / 2 },
+            {
+                width: size,
+                height: size,
+                borderRadius: size / 2,
+                backgroundColor,
+                shadowColor
+            },
             style
         ]}>
-            <ThemedText type="defaultSemiBold" style={{ color: Colors.primary, fontSize }}>
+            <ThemedText type="defaultSemiBold" style={{ color: textColor, fontSize }}>
                 {getInitials(name)}
             </ThemedText>
         </View>
@@ -34,10 +44,11 @@ export default function Avatar({ name, size = 48, style }: AvatarProps) {
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: Colors.white,
         justifyContent: 'center',
         alignItems: 'center',
-        ...Colors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
         elevation: 5,
     },
 });

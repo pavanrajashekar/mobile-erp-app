@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle, TouchableOpacityProps, View } from 'react-native';
-import { Colors } from '../constants/Colors';
+import { useThemeColor } from '@/hooks/useThemeColor';
 
 interface ButtonProps extends TouchableOpacityProps {
     title: string;
@@ -23,33 +23,43 @@ export default function Button({
     icon,
     ...props
 }: ButtonProps) {
+    const primary = useThemeColor({}, 'primary');
+    const primaryLight = useThemeColor({}, 'primaryLight');
+    const border = useThemeColor({}, 'border');
+    const text = useThemeColor({}, 'text');
+    const textSecondary = useThemeColor({}, 'textSecondary');
+    const errorColor = useThemeColor({}, 'error');
+    // Button text on primary should be white.
+    // In dark mode, primary is bright blue, white text works.
+    const onPrimaryText = '#FFFFFF';
+
+    let backgroundColor = 'transparent';
+    let textColor = primary;
+    let borderColor = 'transparent';
+
     const isPrimary = variant === 'primary';
     const isSecondary = variant === 'secondary';
     const isOutline = variant === 'outline';
     const isGhost = variant === 'ghost';
     const isDanger = variant === 'danger';
 
-    let backgroundColor = 'transparent';
-    let textColor = Colors.primary;
-    let borderColor = 'transparent';
-
     if (isPrimary) {
-        backgroundColor = Colors.primary;
-        textColor = Colors.white;
+        backgroundColor = primary;
+        textColor = onPrimaryText;
     } else if (isSecondary) {
-        backgroundColor = Colors.primaryLight;
-        textColor = Colors.primaryDark;
+        backgroundColor = primaryLight;
+        textColor = primary;
     } else if (isDanger) {
-        backgroundColor = Colors.errorLight;
-        textColor = Colors.error;
+        backgroundColor = 'rgba(239, 68, 68, 0.1)';
+        textColor = errorColor;
     } else if (isOutline) {
-        borderColor = Colors.border;
-        textColor = Colors.text;
+        borderColor = border;
+        textColor = text;
     } else if (isGhost) {
-        textColor = Colors.textSecondary;
+        textColor = textSecondary;
     }
 
-    const height = size === 'lg' ? 56 : size === 'md' ? 48 : 36;
+    const height = size === 'lg' ? 56 : size === 'md' ? 50 : 36; // Slightly taller md
     const paddingHorizontal = size === 'lg' ? 32 : size === 'md' ? 24 : 16;
     const fontSize = size === 'lg' ? 18 : size === 'md' ? 16 : 14;
 
@@ -68,7 +78,7 @@ export default function Button({
                 style
             ]}
             disabled={disabled || loading}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
             {...props}
         >
             {loading ? (
@@ -87,15 +97,17 @@ export default function Button({
 
 const styles = StyleSheet.create({
     button: {
-        borderRadius: 999, // Pill shape
+        // Let's go with 16 for a consistent "Soft" look matching cards (20)
+        borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
         flexDirection: 'row',
     },
     disabled: {
-        opacity: 0.6,
+        opacity: 0.5,
     },
     text: {
-        fontWeight: '600',
+        fontWeight: '600', // SemiBold
+        letterSpacing: 0.3,
     },
 });

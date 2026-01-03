@@ -6,15 +6,27 @@ import { createProduct } from '@/services/productService';
 import Input from '@/components/Input';
 import Button from '@/components/Button';
 import { Colors } from '@/constants/Colors';
+import { useShop } from '@/hooks/useShop';
+import ThemedText from '@/components/ThemedText';
+import { useThemeColor } from '@/hooks/useThemeColor';
 
 export default function AddProductScreen() {
+    const { businessType } = useShop();
+    const router = useRouter();
+    const backgroundColor = useThemeColor({}, 'background');
+    const textSecondary = useThemeColor({}, 'textSecondary');
+
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
-    const [costPrice, setCostPrice] = useState(''); // Added
+    const [costPrice, setCostPrice] = useState('');
     const [category, setCategory] = useState('');
     const [unit, setUnit] = useState('');
+
+    // Wine Specific Info
+    const [vintage, setVintage] = useState('');
+    const [region, setRegion] = useState('');
+
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const router = useRouter();
 
     const handleSubmit = async () => {
         if (!name.trim()) {
@@ -22,13 +34,20 @@ export default function AddProductScreen() {
             return;
         }
 
+        let finalCategory = category;
+        // Merge wine info into category for display purpose if no metadata support yet
+        if (businessType === 'wine') {
+            if (region) finalCategory = region + (finalCategory ? ` • ${finalCategory}` : '');
+            if (vintage) finalCategory = vintage + (finalCategory ? ` • ${finalCategory}` : '');
+        }
+
         setIsSubmitting(true);
         try {
             await createProduct({
                 name: name.trim(),
                 price: price ? parseFloat(price) : 0,
-                cost_price: costPrice ? parseFloat(costPrice) : 0, // Added
-                category: category.trim() || undefined,
+                cost_price: costPrice ? parseFloat(costPrice) : 0,
+                category: finalCategory.trim() || undefined,
                 unit: unit.trim() || undefined,
             });
             router.back();
@@ -41,7 +60,7 @@ export default function AddProductScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor }]}>
             <ScrollView contentContainerStyle={styles.content}>
                 <Stack.Screen options={{ title: 'Add Product' }} />
 
@@ -50,8 +69,29 @@ export default function AddProductScreen() {
                         label="Product Name *"
                         value={name}
                         onChangeText={setName}
-                        placeholder="e.g. Granite Slab A1"
+                        placeholder={businessType === 'wine' ? "e.g. Cabernet Sauvignon" : "e.g. Granite Slab A1"}
                     />
+
+                    {/* Wine Specific Fields */}
+                    {businessType === 'wine' && (
+                        <View style={styles.row}>
+                            <Input
+                                label="Vintage (Year)"
+                                value={vintage}
+                                onChangeText={setVintage}
+                                placeholder="2020"
+                                keyboardType="numeric"
+                                containerStyle={styles.halfInput}
+                            />
+                            <Input
+                                label="Region"
+                                value={region}
+                                onChangeText={setRegion}
+                                placeholder="Napa Valley"
+                                containerStyle={styles.halfInput}
+                            />
+                        </View>
+                    )}
 
                     <View style={styles.row}>
                         <Input
@@ -78,7 +118,7 @@ export default function AddProductScreen() {
                             label="Category"
                             value={category}
                             onChangeText={setCategory}
-                            placeholder="e.g. Granite"
+                            placeholder={businessType === 'wine' ? "Type (Red/White)" : "e.g. Granite"}
                             containerStyle={styles.halfInput}
                         />
 
@@ -86,10 +126,17 @@ export default function AddProductScreen() {
                             label="Unit"
                             value={unit}
                             onChangeText={setUnit}
-                            placeholder="e.g. sqft"
+                            placeholder={businessType === 'stone' ? "sqft" : "pcs"}
                             containerStyle={styles.halfInput}
+                            defaultValue={businessType === 'stone' ? 'sqft' : ''}
                         />
                     </View>
+
+                    {businessType === 'stone' && (
+                        <ThemedText style={{ fontSize: 12, color: textSecondary, marginTop: -10, marginBottom: 10 }}>
+                            * For stone slabs, standard unit is usually 'sqft'.
+                        </ThemedText>
+                    )}
 
                     <Button
                         title="Save Product"
@@ -106,13 +153,12 @@ export default function AddProductScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.white,
     },
     content: {
         padding: 20,
     },
     form: {
-        gap: 0,
+        gap: 16,
     },
     row: {
         flexDirection: 'row',

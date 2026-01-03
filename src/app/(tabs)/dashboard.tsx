@@ -1,6 +1,7 @@
-import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Dimensions, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/context/ThemeContext';
 import { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase } from '@/services/supabase';
@@ -13,28 +14,39 @@ import Avatar from '@/components/Avatar';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import LoadingState from '@/components/LoadingState';
+import { ThemedView } from '@/components/ThemedView';
 
 export default function Dashboard() {
     const { user } = useAuth();
+    const router = useRouter();
+    const { theme } = useTheme();
+    const activeColors = Colors[theme];
+
+    // ---------------- State ----------------
     const [stats, setStats] = useState({
         totalProducts: 0,
         lowStock: 0,
         sales: 0,
+        cogs: 0,
         expenses: 0,
         purchases: 0,
         netProfit: 0,
         stockValue: 0,
     });
     const [recentActivity, setRecentActivity] = useState<any[]>([]);
+    const [lowStockItems, setLowStockItems] = useState<any[]>([]);
+    const [deadStockItems, setDeadStockItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+
+    // Filters & Modals
     const [expenseModalVisible, setExpenseModalVisible] = useState(false);
     const [timeRange, setTimeRange] = useState<'Day' | 'Week' | 'Month' | 'Year'>('Day');
-    const router = useRouter();
 
+    // ---------------- Helpers ----------------
     const getStartDate = (range: string) => {
         const now = new Date();
-        now.setHours(0, 0, 0, 0); // Start of today
+        now.setHours(0, 0, 0, 0);
 
         if (range === 'Day') return now.toISOString();
 
@@ -46,28 +58,49 @@ export default function Dashboard() {
         return date.toISOString();
     };
 
+    // ---------------- Data Loading ----------------
     const loadStats = async () => {
         try {
             const startDate = getStartDate(timeRange);
 
-            // 1. Total Products, Low Stock & Stock Value
+            // 1. Products Logic (Low Stock & Dead Stock)
             const { data: products } = await supabase
                 .from('products')
-                .select('id, cost_price, stock_movements(quantity)', { count: 'exact' });
+                .select('id, name, cost_price, unit, stock_movements(quantity, movement_type, created_at)');
 
             const productCount = products?.length || 0;
-            let lowStockCount = 0;
             let totalStockValue = 0;
+
+            const lowStockList: any[] = [];
+            const deadStockList: any[] = [];
+            const ninetyDaysAgo = new Date();
+            ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
             if (products) {
                 products.forEach(p => {
                     const stock = p.stock_movements?.reduce((sum: number, m: any) => sum + Number(m.quantity), 0) || 0;
-                    if (stock < 10) lowStockCount++;
+
                     if (stock > 0) {
                         totalStockValue += (stock * (Number(p.cost_price) || 0));
                     }
+
+                    if (stock < 10) {
+                        lowStockList.push({ ...p, current_stock: stock });
+                    }
+
+                    if (stock > 0) {
+                        const lastSale = p.stock_movements?.find((m: any) =>
+                            m.movement_type === 'sale' && new Date(m.created_at) > ninetyDaysAgo
+                        );
+                        if (!lastSale) {
+                            deadStockList.push({ ...p, current_stock: stock });
+                        }
+                    }
                 });
             }
+
+            setLowStockItems(lowStockList.sort((a, b) => a.current_stock - b.current_stock).slice(0, 10));
+            setDeadStockItems(deadStockList.slice(0, 5));
 
             // 2. Sales
             const { data: sales } = await supabase
@@ -112,15 +145,16 @@ export default function Dashboard() {
 
             setStats({
                 totalProducts: productCount,
-                lowStock: lowStockCount,
+                lowStock: lowStockList.length,
                 sales: salesTotal,
+                cogs: cogsTotal,
                 expenses: expensesTotal,
                 purchases: purchasesTotal,
                 netProfit: netProfit,
                 stockValue: totalStockValue,
             });
 
-            // 5. Recent Activity (Top 5 Mixed)
+            // 5. Recent Activity
             const recentSales = (sales || []).slice(0, 5).map(s => ({ ...s, type: 'sale', date: s.created_at, amount: s.total_amount }));
             const recentExpenses = (expenses || []).slice(0, 5).map(e => ({ ...e, type: 'expense', date: e.date, amount: e.amount }));
             const recentPurchases = (purchases || []).slice(0, 5).map(p => ({ ...p, type: 'purchase', date: p.created_at, amount: p.total_cost }));
@@ -139,6 +173,7 @@ export default function Dashboard() {
         }
     };
 
+    // ---------------- Effects ----------------
     useEffect(() => {
         setLoading(true);
         loadStats();
@@ -155,6 +190,7 @@ export default function Dashboard() {
         loadStats();
     };
 
+    // ---------------- Gestures ----------------
     const handleSwipe = (direction: 'left' | 'right') => {
         const ranges: ('Day' | 'Week' | 'Month' | 'Year')[] = ['Day', 'Week', 'Month', 'Year'];
         const currentIndex = ranges.indexOf(timeRange);
@@ -173,13 +209,13 @@ export default function Dashboard() {
 
     const swipeLeft = Gesture.Fling().direction(1).onEnd(() => runOnJS(handleSwipe)('right'));
     const swipeRight = Gesture.Fling().direction(2).onEnd(() => runOnJS(handleSwipe)('left'));
-
     const composedGestures = Gesture.Simultaneous(swipeLeft, swipeRight);
 
+    // ---------------- Render Helpers ----------------
     const renderActivityItem = (item: any) => {
         let iconName: any = 'help';
-        let iconColor = Colors.textSecondary;
-        let bgColor = Colors.surfaceSubtle;
+        let iconColor = activeColors.textSecondary;
+        let bgColor = activeColors.surfaceSubtle;
         let title = '';
         let subtitle = '';
         let amount = 0;
@@ -187,23 +223,23 @@ export default function Dashboard() {
 
         if (item.type === 'sale') {
             iconName = 'receipt-outline';
-            iconColor = Colors.success;
-            bgColor = Colors.successLight;
+            iconColor = activeColors.success;
+            bgColor = 'rgba(58, 197, 98, 0.1)'; // successLight
             title = 'New Sale';
             subtitle = new Date(item.date).toLocaleDateString();
             amount = item.amount;
         } else if (item.type === 'expense') {
             iconName = 'wallet-outline';
-            iconColor = Colors.error;
-            bgColor = Colors.errorLight;
+            iconColor = activeColors.error;
+            bgColor = 'rgba(239, 68, 68, 0.1)'; // errorLight
             title = item.description || 'Expense';
             subtitle = new Date(item.date).toLocaleDateString();
             amount = item.amount;
             isNegative = true;
         } else if (item.type === 'purchase') {
             iconName = 'cube-outline';
-            iconColor = Colors.warning;
-            bgColor = '#fff3e0';
+            iconColor = activeColors.warning;
+            bgColor = 'rgba(245, 158, 11, 0.1)'; // warningLight
             title = `Stock In: ${item.products?.name || 'Unknown'}`;
             subtitle = new Date(item.date).toLocaleDateString();
             amount = item.amount;
@@ -211,15 +247,15 @@ export default function Dashboard() {
         }
 
         return (
-            <View key={`${item.type}-${item.id}`} style={styles.activityItem}>
+            <View key={`${item.type}-${item.id}`} style={[styles.activityItem, { borderBottomColor: activeColors.border }]}>
                 <View style={[styles.activityIcon, { backgroundColor: bgColor }]}>
                     <Ionicons name={iconName} size={20} color={iconColor} />
                 </View>
                 <View style={styles.activityContent}>
                     <ThemedText type="defaultSemiBold">{title}</ThemedText>
-                    <ThemedText type="default" style={styles.activityDate}>{subtitle}</ThemedText>
+                    <ThemedText type="default" style={[styles.activityDate, { color: activeColors.textSecondary }]}>{subtitle}</ThemedText>
                 </View>
-                <ThemedText type="defaultSemiBold" style={{ color: isNegative ? Colors.text : Colors.success }}>
+                <ThemedText type="defaultSemiBold" style={{ color: isNegative ? activeColors.text : activeColors.success }}>
                     {isNegative ? '-' : '+'}₹{Number(amount).toFixed(2)}
                 </ThemedText>
             </View>
@@ -227,36 +263,44 @@ export default function Dashboard() {
     };
 
     return (
-        <GestureHandlerRootView style={styles.container}>
-            <GestureDetector gesture={composedGestures}>
-                <ScrollView
-                    contentContainerStyle={styles.content}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-                    showsVerticalScrollIndicator={false}
-                >
-                    <SafeAreaView edges={['top']}>
-                        {/* Header */}
-                        <View style={styles.header}>
-                            <View>
-                                <ThemedText type="title" style={{ fontSize: 28, color: Colors.text }}>Overview</ThemedText>
-                                <ThemedText type="default" style={{ color: Colors.textSecondary }}>{user?.user_metadata?.full_name || 'Admin'}</ThemedText>
-                            </View>
-                            <TouchableOpacity onPress={() => router.push('/profile')}>
-                                <Avatar name={user?.user_metadata?.full_name || user?.email} size={42} />
-                            </TouchableOpacity>
+        <GestureHandlerRootView style={[styles.container, { backgroundColor: activeColors.background }]}>
+            <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+                <View style={[styles.header, { paddingHorizontal: 20, paddingTop: 10 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Image source={require('../../../assets/images/revenew-logo.svg')} style={{ width: 32, height: 32, resizeMode: 'contain' }} />
+                        <View>
+                            <ThemedText type="title" style={{ fontSize: 24 }}>revenew</ThemedText>
+                            <ThemedText type="default" style={{ color: activeColors.textSecondary, fontSize: 12 }}>{user?.user_metadata?.full_name || 'Admin'}</ThemedText>
                         </View>
+                    </View>
+                    <TouchableOpacity onPress={() => router.push('/profile')}>
+                        <Avatar name={user?.user_metadata?.full_name || user?.email} size={42} />
+                    </TouchableOpacity>
+                </View>
 
-                        {/* Pill Bar Filters */}
-                        <View style={styles.filterContainer}>
-                            {['Day', 'Week', 'Month', 'Year'].map((range) => (
+                <GestureDetector gesture={composedGestures}>
+                    <ScrollView
+                        contentContainerStyle={styles.content}
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={activeColors.text} />}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        {/* Time Filter Segmented Control */}
+                        <View style={styles.segmentContainer}>
+                            {(['Day', 'Week', 'Month', 'Year'] as const).map((range) => (
                                 <TouchableOpacity
                                     key={range}
-                                    onPress={() => setTimeRange(range as any)}
-                                    style={[styles.filterPill, timeRange === range && styles.filterPillActive]}
+                                    onPress={() => setTimeRange(range)}
+                                    activeOpacity={0.7}
+                                    style={[
+                                        styles.segmentButton,
+                                        timeRange === range && styles.segmentButtonActive
+                                    ]}
                                 >
                                     <ThemedText
-                                        type="defaultSemiBold"
-                                        style={[styles.filterText, timeRange === range && styles.filterTextActive]}
+                                        style={[
+                                            styles.segmentText,
+                                            timeRange === range ? { color: activeColors.primary, fontWeight: '700' } : { color: activeColors.textSecondary, fontWeight: '500' }
+                                        ]}
                                     >
                                         {range}
                                     </ThemedText>
@@ -264,90 +308,113 @@ export default function Dashboard() {
                             ))}
                         </View>
 
-                        import LoadingState from '@/components/LoadingState';
-
-                        // ... inside component
-
                         {loading ? (
                             <LoadingState message="Analyzing data..." transparent />
                         ) : (
+
                             <View style={styles.statsContainer}>
-                                {/* Hero Card: Net Profit */}
-                                <Card style={[styles.heroCard, { backgroundColor: stats.netProfit >= 0 ? Colors.primary : Colors.error }]}>
-                                    <View style={styles.heroContent}>
+                                {/* Super Card 1: Financial Health */}
+                                <View style={[styles.superCard, { backgroundColor: '#ffffff', borderColor: activeColors.border }]}>
+                                    <View style={styles.cardHeader}>
                                         <View>
-                                            <ThemedText type="default" style={{ color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}>Net Profit</ThemedText>
-                                            <ThemedText type="title" style={{ color: 'white', fontSize: 42, lineHeight: 48 }}>
-                                                ₹{stats.netProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            <ThemedText style={{ color: activeColors.textSecondary, fontSize: 13, fontWeight: '600', letterSpacing: 0.5 }}>NET PROFIT</ThemedText>
+                                            <ThemedText type="title" style={{ fontSize: 32, marginTop: 4, color: stats.netProfit > 0 ? activeColors.success : activeColors.text }}>
+                                                {stats.netProfit > 0 ? '+' : ''}₹{stats.netProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                                             </ThemedText>
                                         </View>
-                                        <View style={styles.heroIcon}>
-                                            <Ionicons name={stats.netProfit >= 0 ? "trending-up" : "trending-down"} size={32} color="white" />
+                                        <View style={[styles.trendBadge, { backgroundColor: stats.netProfit >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(148, 163, 184, 0.1)' }]}>
+                                            <Ionicons name={stats.netProfit >= 0 ? "trending-up" : "trending-down"} size={16} color={stats.netProfit >= 0 ? activeColors.success : activeColors.textSecondary} />
+                                            <ThemedText style={{ color: stats.netProfit >= 0 ? activeColors.success : activeColors.textSecondary, fontSize: 12, fontWeight: '700', marginLeft: 4 }}>
+                                                {stats.sales > 0 ? ((stats.netProfit / stats.sales) * 100).toFixed(0) : 0}%
+                                            </ThemedText>
                                         </View>
                                     </View>
-                                </Card>
 
-                                {/* Grid 1: Sales & Expenses */}
-                                <View style={styles.grid}>
-                                    <Card style={styles.statCard}>
-                                        <View style={[styles.iconBox, { backgroundColor: Colors.successLight }]}>
-                                            <Ionicons name="arrow-down" size={20} color={Colors.success} />
-                                        </View>
-                                        <View>
-                                            <ThemedText type="default" style={styles.statLabel}>Income</ThemedText>
-                                            <ThemedText type="defaultSemiBold" style={{ color: Colors.success, fontSize: 16 }}>
+                                    {/* Visual Margin Bar */}
+                                    {/* Bar represents 100% of Sales. Red = COGS, Orange = Expenses, Green = Profit */}
+                                    <View style={[styles.dividerHorizontal, { backgroundColor: activeColors.surfaceSubtle }]} />
+
+                                    {/* Financial Statement Breakdown */}
+                                    <View style={{ gap: 12 }}>
+                                        {/* Income Row - Positive (Green) */}
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                <View style={[styles.miniDot, { backgroundColor: activeColors.success }]} />
+                                                <ThemedText style={{ fontSize: 14, color: activeColors.textSecondary }}>Income</ThemedText>
+                                            </View>
+                                            <ThemedText type="defaultSemiBold" style={{ fontSize: 16, color: activeColors.success }}>
                                                 +₹{stats.sales.toLocaleString()}
                                             </ThemedText>
                                         </View>
-                                    </Card>
 
-                                    <Card style={styles.statCard}>
-                                        <View style={[styles.iconBox, { backgroundColor: Colors.errorLight }]}>
-                                            <Ionicons name="arrow-up" size={20} color={Colors.error} />
-                                        </View>
-                                        <View>
-                                            <ThemedText type="default" style={styles.statLabel}>Expense</ThemedText>
-                                            <ThemedText type="defaultSemiBold" style={{ color: Colors.error, fontSize: 16 }}>
-                                                -₹{stats.expenses.toLocaleString()}
+                                        {/* COGS Row - Cost (Black) */}
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                <View style={[styles.miniDot, { backgroundColor: '#F59E0B' }]} />
+                                                <ThemedText style={{ fontSize: 14, color: activeColors.textSecondary }}>(-) Goods Cost</ThemedText>
+                                            </View>
+                                            <ThemedText type="defaultSemiBold" style={{ fontSize: 16, color: activeColors.text }}>
+                                                ₹{stats.cogs.toLocaleString()}
                                             </ThemedText>
                                         </View>
-                                    </Card>
+
+                                        {/* Expenses Row - Cost (Black) */}
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                <View style={[styles.miniDot, { backgroundColor: '#EF4444' }]} />
+                                                <ThemedText style={{ fontSize: 14, color: activeColors.textSecondary }}>(-) Expenses</ThemedText>
+                                            </View>
+                                            <ThemedText type="defaultSemiBold" style={{ fontSize: 16, color: activeColors.text }}>
+                                                ₹{stats.expenses.toLocaleString()}
+                                            </ThemedText>
+                                        </View>
+                                    </View>
                                 </View>
 
-                                {/* Grid 2: Purchases & Stock Value */}
-                                <View style={styles.grid}>
-                                    <Card style={styles.statCard}>
-                                        <View style={[styles.iconBox, { backgroundColor: '#fff3e0' }]}>
-                                            <Ionicons name="cube" size={20} color={Colors.warning} />
-                                        </View>
+                                {/* Super Card 2: Inventory Status */}
+                                <View style={[styles.superCard, { backgroundColor: '#ffffff', borderColor: activeColors.border }]}>
+                                    <View style={styles.cardHeader}>
                                         <View>
-                                            <ThemedText type="default" style={styles.statLabel}>Purchases</ThemedText>
-                                            <ThemedText type="defaultSemiBold" style={{ color: Colors.warning, fontSize: 16 }}>
-                                                ₹{stats.purchases.toLocaleString()}
+                                            <ThemedText style={{ color: activeColors.textSecondary, fontSize: 13, fontWeight: '600', letterSpacing: 0.5 }}>INVENTORY VALUE</ThemedText>
+                                            <ThemedText type="title" style={{ fontSize: 32, marginTop: 4, color: activeColors.success }}>
+                                                +₹{stats.stockValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                                             </ThemedText>
                                         </View>
-                                    </Card>
+                                        <View style={[styles.iconCircle, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                                            <Ionicons name="cube" size={20} color="#F59E0B" />
+                                        </View>
+                                    </View>
 
-                                    <Card style={styles.statCard}>
-                                        <View style={[styles.iconBox, { backgroundColor: Colors.primaryLight }]}>
-                                            <Ionicons name="pricetag" size={20} color={Colors.primary} />
+                                    <View style={[styles.dividerHorizontal, { backgroundColor: activeColors.surfaceSubtle }]} />
+
+                                    <View style={styles.cardFooter}>
+                                        <View style={styles.footerItem}>
+                                            <ThemedText style={{ fontSize: 12, color: activeColors.textSecondary }}>Purchases</ThemedText>
+                                            <ThemedText type="defaultSemiBold">₹{stats.purchases.toLocaleString()}</ThemedText>
                                         </View>
-                                        <View>
-                                            <ThemedText type="default" style={styles.statLabel}>Stock Value</ThemedText>
-                                            <ThemedText type="defaultSemiBold" style={{ color: Colors.primary, fontSize: 16 }}>
-                                                ₹{stats.stockValue.toLocaleString()}
+                                        <View style={[styles.divider, { backgroundColor: activeColors.border }]} />
+                                        <View style={styles.footerItem}>
+                                            <ThemedText style={{ fontSize: 12, color: activeColors.textSecondary }}>Low Stock</ThemedText>
+                                            <ThemedText type="defaultSemiBold" style={{ color: stats.lowStock > 0 ? activeColors.warning : activeColors.text }}>
+                                                {stats.lowStock} Items
                                             </ThemedText>
                                         </View>
-                                    </Card>
+                                    </View>
+
+                                    {/* Actionable Alert */}
+                                    {stats.lowStock > 0 && (
+                                        <TouchableOpacity
+                                            onPress={() => router.push('/products')}
+                                            style={[styles.alertBanner, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}
+                                        >
+                                            <Ionicons name="warning" size={16} color={activeColors.warning} />
+                                            <ThemedText style={{ fontSize: 12, color: activeColors.warning, fontWeight: '600', marginLeft: 6 }}>
+                                                Restock Recommended
+                                            </ThemedText>
+                                            <Ionicons name="chevron-forward" size={16} color={activeColors.warning} style={{ marginLeft: 'auto' }} />
+                                        </TouchableOpacity>
+                                    )}
                                 </View>
-
-                                {/* Alert Row: Low Stock */}
-                                {stats.lowStock > 0 && (
-                                    <Card style={styles.alertCard} variant="flat">
-                                        <Ionicons name="alert-circle" size={20} color={Colors.error} />
-                                        <ThemedText type="defaultSemiBold" style={{ color: Colors.error }}>{stats.lowStock} Items Low Stock</ThemedText>
-                                    </Card>
-                                )}
 
                                 {/* Recent Activity */}
                                 <View style={styles.sectionHeader}>
@@ -357,15 +424,15 @@ export default function Dashboard() {
                                     {recentActivity.length > 0 ? (
                                         recentActivity.map(renderActivityItem)
                                     ) : (
-                                        <ThemedText style={{ textAlign: 'center', color: Colors.textSecondary, padding: 20 }}>No recent activity</ThemedText>
+                                        <ThemedText style={{ textAlign: 'center', color: activeColors.textSecondary, padding: 20 }}>No recent activity</ThemedText>
                                     )}
                                 </Card>
                             </View>
                         )}
-                    </SafeAreaView>
-                    <View style={{ height: 120 }} />
-                </ScrollView>
-            </GestureDetector>
+                        <View style={{ height: 120 }} />
+                    </ScrollView>
+                </GestureDetector>
+            </SafeAreaView>
 
             <AddExpenseModal
                 visible={expenseModalVisible}
@@ -379,7 +446,6 @@ export default function Dashboard() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     content: {
         paddingHorizontal: 20,
@@ -391,85 +457,113 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    filterContainer: {
-        marginBottom: 20,
+    segmentContainer: {
         flexDirection: 'row',
-        backgroundColor: Colors.surfaceSubtle,
+        backgroundColor: '#e2e8f0', // Slate 200
+        borderRadius: 24,
         padding: 4,
-        borderRadius: 40,
+        marginBottom: 20,
     },
-    filterPill: {
+    segmentButton: {
         flex: 1,
         paddingVertical: 8,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 30,
-    },
-    filterPillActive: {
-        backgroundColor: Colors.white,
-        ...Colors.shadow,
-        shadowOpacity: 0.1,
-        elevation: 1,
-    },
-    filterText: {
-        color: Colors.textSecondary,
-        fontSize: 12,
-    },
-    filterTextActive: {
-        color: Colors.primary,
-        fontWeight: '700',
-    },
-    statsContainer: {
-        gap: 12,
-    },
-    heroCard: {
-        padding: 24,
-        borderRadius: 24,
-        marginBottom: 4,
-    },
-    heroContent: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    heroIcon: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    grid: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    statCard: {
-        flex: 1,
-        padding: 16,
-        gap: 12,
         borderRadius: 20,
     },
-    statLabel: {
-        color: Colors.textSecondary,
-        fontSize: 12,
-        marginBottom: 2,
+    segmentButtonActive: {
+        backgroundColor: '#FFFFFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
     },
-    iconBox: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        justifyContent: 'center',
-        alignItems: 'center',
+    segmentText: {
+        fontSize: 13,
     },
-    alertCard: {
+    statsContainer: {
+        gap: 16,
+    },
+    superCard: {
+        borderRadius: 24,
+        padding: 20,
+        borderWidth: 1,
+    },
+    cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 20,
+    },
+    trendBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        backgroundColor: Colors.errorLight,
-        padding: 12,
-        borderRadius: 16,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 20,
+    },
+    progressContainer: {
+        height: 8,
+        backgroundColor: '#F1F5F9',
+        borderRadius: 4,
+        marginBottom: 20,
+        flexDirection: 'row',
+        overflow: 'hidden',
+    },
+    progressBar: {
+        height: '100%',
+        borderRadius: 4,
+    },
+    progressBarOver: {
+        height: '100%',
+        position: 'absolute',
+        left: 0,
+        borderTopLeftRadius: 4,
+        borderBottomLeftRadius: 4,
+    },
+    cardFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    footerItem: {
+        flex: 1,
+        gap: 4,
+    },
+    divider: {
+        width: 1,
+        height: 32,
+        marginHorizontal: 16,
+    },
+    dividerHorizontal: {
+        height: 1,
+        width: '100%',
+        marginVertical: 16,
+    },
+    dot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginBottom: 2,
+    },
+    iconCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         justifyContent: 'center',
+        alignItems: 'center',
+    },
+    alertBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 12,
+        marginTop: 16,
+    },
+    miniDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
     },
     sectionHeader: {
         marginTop: 12,
@@ -478,15 +572,16 @@ const styles = StyleSheet.create({
     activityCard: {
         padding: 0,
         borderRadius: 20,
-        backgroundColor: Colors.surface, // Used to be white, but surface matches card style
         overflow: 'hidden',
+        backgroundColor: '#ffffff', // Force white
+        borderWidth: 1,
+        borderColor: 'rgba(226, 232, 240, 0.6)',
     },
     activityItem: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.surfaceSubtle,
         gap: 12,
     },
     activityIcon: {
@@ -501,6 +596,5 @@ const styles = StyleSheet.create({
     },
     activityDate: {
         fontSize: 12,
-        color: Colors.textSecondary,
     },
 });
