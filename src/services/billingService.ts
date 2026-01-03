@@ -36,7 +36,8 @@ export const processSale = async (items: CartItem[], totalAmount: number, paymen
         sale_id: sale.id,
         product_id: item.product.id,
         quantity: item.quantity,
-        price_at_sale: item.price
+        price_at_sale: item.price,
+        cost_at_sale: item.product.cost_price || 0 // Track cost for profit calc
     }));
 
     const { error: itemsError } = await supabase

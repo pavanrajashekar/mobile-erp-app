@@ -8,6 +8,7 @@ export interface Product {
     category?: string;
     unit?: string;
     price?: number;
+    cost_price?: number; // Added
     current_stock?: number;
     is_active: boolean;
     created_at: string;
@@ -69,7 +70,7 @@ export const getProduct = async (id: string) => {
     } as Product;
 };
 
-export const createProduct = async (product: Pick<Product, 'name' | 'category' | 'unit' | 'price' | 'current_stock'>) => {
+export const createProduct = async (product: Pick<Product, 'name' | 'category' | 'unit' | 'price' | 'cost_price' | 'current_stock'>) => {
     const shopId = await getCurrentShopId();
     if (!shopId) throw new Error('No shop found for current user');
 
@@ -83,7 +84,7 @@ export const createProduct = async (product: Pick<Product, 'name' | 'category' |
     const { data, error } = await supabase
         .from('products')
         .insert([{
-            ...product,
+            ...productData,
             shop_id: shopId,
             is_active: true
         }])

@@ -10,6 +10,7 @@ import { Colors } from '@/constants/Colors';
 export default function AddProductScreen() {
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
+    const [costPrice, setCostPrice] = useState(''); // Added
     const [category, setCategory] = useState('');
     const [unit, setUnit] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,6 +27,7 @@ export default function AddProductScreen() {
             await createProduct({
                 name: name.trim(),
                 price: price ? parseFloat(price) : 0,
+                cost_price: costPrice ? parseFloat(costPrice) : 0, // Added
                 category: category.trim() || undefined,
                 unit: unit.trim() || undefined,
             });
@@ -51,13 +53,25 @@ export default function AddProductScreen() {
                         placeholder="e.g. Granite Slab A1"
                     />
 
-                    <Input
-                        label="Selling Price"
-                        value={price}
-                        onChangeText={setPrice}
-                        placeholder="0.00"
-                        keyboardType="numeric"
-                    />
+                    <View style={styles.row}>
+                        <Input
+                            label="Selling Price"
+                            value={price}
+                            onChangeText={setPrice}
+                            placeholder="0.00"
+                            keyboardType="numeric"
+                            containerStyle={styles.halfInput}
+                        />
+
+                        <Input
+                            label="Cost Price"
+                            value={costPrice}
+                            onChangeText={setCostPrice}
+                            placeholder="0.00"
+                            keyboardType="numeric"
+                            containerStyle={styles.halfInput}
+                        />
+                    </View>
 
                     <View style={styles.row}>
                         <Input

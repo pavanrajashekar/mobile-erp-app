@@ -13,9 +13,10 @@ import SlabMeasurementModal from '@/components/SlabMeasurementModal';
 import Card from '@/components/Card';
 import ProductSelectionModal from '@/components/ProductSelectionModal';
 import ThemedText from '@/components/ThemedText';
+// Import New Components
+import EmptyState from '@/components/EmptyState';
 
 export default function BillingScreen() {
-    // Note: 'products' state is removed as it's now handled by the Modal
     const [cart, setCart] = useState<CartItem[]>([]);
     const [isProductModalVisible, setProductModalVisible] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -143,18 +144,19 @@ export default function BillingScreen() {
                 keyExtractor={item => item.product.id}
                 contentContainerStyle={styles.cartList}
                 ListEmptyComponent={
-                    <View style={styles.emptyState}>
-                        <Ionicons name="cart-outline" size={48} color={Colors.disabled} />
-                        <ThemedText style={styles.emptyText}>Cart is empty</ThemedText>
-                        <ThemedText type="caption">Tap + to add products</ThemedText>
-                    </View>
+                    <EmptyState
+                        variant="cart"
+                        onAction={() => setProductModalVisible(true)}
+                        actionLabel="Add Products"
+                        style={{ marginTop: 60 }}
+                    />
                 }
                 renderItem={({ item }) => (
                     <Card style={styles.cartItemContent}>
                         <View style={{ flex: 1 }}>
                             <ThemedText type="defaultSemiBold">{item.product.name}</ThemedText>
                             <View style={styles.priceContainer}>
-                                <ThemedText style={styles.currencySymbol}>$</ThemedText>
+                                <ThemedText style={styles.currencySymbol}>₹</ThemedText>
                                 <TextInput
                                     style={styles.priceInput}
                                     value={item.price.toString()}
@@ -204,7 +206,7 @@ export default function BillingScreen() {
             <View style={styles.footer}>
                 <View>
                     <ThemedText style={styles.headerLabel}>Total Amount</ThemedText>
-                    <ThemedText style={styles.totalAmount}>${totalAmount.toFixed(2)}</ThemedText>
+                    <ThemedText style={styles.totalAmount}>₹{totalAmount.toFixed(2)}</ThemedText>
                 </View>
                 <View style={styles.footerActions}>
                     <Button
@@ -337,17 +339,6 @@ const styles = StyleSheet.create({
     },
     removeBtn: {
         padding: 8,
-    },
-    emptyState: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: 100,
-    },
-    emptyText: {
-        fontSize: 18,
-        fontWeight: '500',
-        color: Colors.text,
-        marginTop: 16,
     },
     fab: {
         position: 'absolute',

@@ -87,7 +87,7 @@ export default function ProductSelectionModal({ visible, onClose, onSelectProduc
                                 <View>
                                     <Text style={styles.productRowName}>{item.name}</Text>
                                     <Text style={{ fontSize: 12, color: Colors.textSecondary }}>
-                                        {item.price ? `$${item.price}` : 'No Price'} • {item.unit || 'Unit'} • Stock: {item.current_stock || 0}
+                                        {item.price ? `₹${item.price}` : 'No Price'} • {item.unit || 'Unit'} • Stock: {item.current_stock || 0}
                                     </Text>
                                 </View>
                                 <Ionicons name="add-circle-outline" size={24} color={Colors.primary} />

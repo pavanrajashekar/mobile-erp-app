@@ -5,7 +5,8 @@ import { Colors } from '../constants/Colors';
 interface ButtonProps extends TouchableOpacityProps {
     title: string;
     loading?: boolean;
-    variant?: 'primary' | 'outline' | 'ghost';
+    variant?: 'primary' | 'outline' | 'ghost' | 'secondary' | 'danger';
+    size?: 'sm' | 'md' | 'lg';
     style?: ViewStyle;
     textStyle?: TextStyle;
     icon?: React.ReactNode;
@@ -15,6 +16,7 @@ export default function Button({
     title,
     loading = false,
     variant = 'primary',
+    size = 'md',
     style,
     textStyle,
     disabled,
@@ -22,17 +24,46 @@ export default function Button({
     ...props
 }: ButtonProps) {
     const isPrimary = variant === 'primary';
+    const isSecondary = variant === 'secondary';
     const isOutline = variant === 'outline';
+    const isGhost = variant === 'ghost';
+    const isDanger = variant === 'danger';
 
-    const backgroundColor = isPrimary ? Colors.primary : 'transparent';
-    const textColor = isPrimary ? Colors.white : Colors.primary;
-    const borderColor = isOutline ? Colors.primary : 'transparent';
+    let backgroundColor = 'transparent';
+    let textColor = Colors.primary;
+    let borderColor = 'transparent';
+
+    if (isPrimary) {
+        backgroundColor = Colors.primary;
+        textColor = Colors.white;
+    } else if (isSecondary) {
+        backgroundColor = Colors.primaryLight;
+        textColor = Colors.primaryDark;
+    } else if (isDanger) {
+        backgroundColor = Colors.errorLight;
+        textColor = Colors.error;
+    } else if (isOutline) {
+        borderColor = Colors.border;
+        textColor = Colors.text;
+    } else if (isGhost) {
+        textColor = Colors.textSecondary;
+    }
+
+    const height = size === 'lg' ? 56 : size === 'md' ? 48 : 36;
+    const paddingHorizontal = size === 'lg' ? 32 : size === 'md' ? 24 : 16;
+    const fontSize = size === 'lg' ? 18 : size === 'md' ? 16 : 14;
 
     return (
         <TouchableOpacity
             style={[
                 styles.button,
-                { backgroundColor, borderColor, borderWidth: isOutline ? 1 : 0 },
+                {
+                    backgroundColor,
+                    borderColor,
+                    borderWidth: isOutline ? 1 : 0,
+                    height,
+                    paddingHorizontal
+                },
                 (disabled || loading) && styles.disabled,
                 style
             ]}
@@ -45,7 +76,7 @@ export default function Button({
             ) : (
                 <>
                     {icon && <View style={{ marginRight: 8 }}>{icon}</View>}
-                    <Text style={[styles.text, { color: textColor }, textStyle]}>
+                    <Text style={[styles.text, { color: textColor, fontSize }, textStyle]}>
                         {title}
                     </Text>
                 </>
@@ -56,9 +87,7 @@ export default function Button({
 
 const styles = StyleSheet.create({
     button: {
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-        borderRadius: 8,
+        borderRadius: 999, // Pill shape
         alignItems: 'center',
         justifyContent: 'center',
         flexDirection: 'row',
@@ -67,7 +96,6 @@ const styles = StyleSheet.create({
         opacity: 0.6,
     },
     text: {
-        fontSize: 16,
         fontWeight: '600',
     },
 });

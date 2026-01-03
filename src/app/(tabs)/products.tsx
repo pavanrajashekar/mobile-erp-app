@@ -1,4 +1,4 @@
-import { View, FlatList, ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { View, FlatList, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -7,6 +7,8 @@ import { ProductListItem } from '@/components/ProductListItem';
 import { FAB } from '@/components/FAB';
 import { Colors } from '@/constants/Colors';
 import ThemedText from '@/components/ThemedText';
+import LoadingState from '@/components/LoadingState';
+import EmptyState from '@/components/EmptyState';
 
 export default function ProductsScreen() {
     const [products, setProducts] = useState<Product[]>([]);
@@ -42,20 +44,25 @@ export default function ProductsScreen() {
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <ThemedText type="title">Inventory</ThemedText>
+                <TouchableOpacity onPress={() => router.push('/products/purchase')}>
+                    <ThemedText type="defaultSemiBold" style={{ color: Colors.primary }}>+ Add Stock</ThemedText>
+                </TouchableOpacity>
             </View>
 
             {loading ? (
-                <View style={styles.centered}>
-                    <ActivityIndicator size="large" color={Colors.primary} />
-                </View>
+                <LoadingState message="Loading inventory..." />
             ) : (
                 <FlatList
                     data={products}
                     renderItem={({ item }) => <ProductListItem product={item} />}
                     keyExtractor={(item) => item.id}
-                    contentContainerStyle={[styles.list, products.length === 0 && styles.centered]}
+                    contentContainerStyle={[styles.list, products.length === 0 && { flex: 1 }]}
                     ListEmptyComponent={
-                        <ThemedText style={styles.emptyText}>No products found. Add your first one!</ThemedText>
+                        <EmptyState
+                            variant="products"
+                            actionLabel="Add First Product"
+                            onAction={() => router.push('/products/add')}
+                        />
                     }
                     refreshing={refreshing}
                     onRefresh={onRefresh}
@@ -75,6 +82,9 @@ const styles = StyleSheet.create({
     header: {
         padding: 20,
         backgroundColor: Colors.background,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     list: {
         padding: 16,

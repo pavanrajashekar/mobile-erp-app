@@ -4,6 +4,7 @@ import { Colors } from '../constants/Colors';
 interface CardProps extends ViewProps {
     style?: StyleProp<ViewStyle>;
     variant?: 'elevated' | 'outlined' | 'flat';
+    onPress?: () => void; // Optional if we want touchable cards later
 }
 
 export default function Card({ style, variant = 'elevated', children, ...props }: CardProps) {
@@ -25,22 +26,19 @@ export default function Card({ style, variant = 'elevated', children, ...props }
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: Colors.white,
-        borderRadius: 12,
-        padding: 16,
+        backgroundColor: Colors.surface,
+        borderRadius: 24, // Modern large radius
+        padding: 24,
     },
     elevated: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
+        ...Colors.shadow,
     },
     outlined: {
         borderWidth: 1,
         borderColor: Colors.border,
+        backgroundColor: 'transparent',
     },
     flat: {
-        backgroundColor: Colors.inputBackground,
+        backgroundColor: Colors.surfaceSubtle,
     },
 });

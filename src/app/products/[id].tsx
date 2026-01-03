@@ -110,7 +110,7 @@ export default function ProductDetailScreen() {
 
                             <View style={styles.detailRow}>
                                 <Text style={styles.detailLabel}>Price:</Text>
-                                <Text style={styles.value}>${product.price ? product.price.toFixed(2) : '0.00'}</Text>
+                                <Text style={styles.value}>₹{product.price ? product.price.toFixed(2) : '0.00'}</Text>
                             </View>
 
                             <View style={styles.detailRow}>

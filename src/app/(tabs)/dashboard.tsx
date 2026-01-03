@@ -1,5 +1,6 @@
 import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '@/hooks/useAuth';
 import { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase } from '@/services/supabase';
@@ -8,16 +9,23 @@ import Card from '@/components/Card';
 import ThemedText from '@/components/ThemedText';
 import { Ionicons } from '@expo/vector-icons';
 import AddExpenseModal from '@/components/AddExpenseModal';
-import SegmentedControl from '@react-native-segmented-control/segmented-control';
+import Avatar from '@/components/Avatar';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
+import LoadingState from '@/components/LoadingState';
 
 export default function Dashboard() {
+    const { user } = useAuth();
     const [stats, setStats] = useState({
         totalProducts: 0,
         lowStock: 0,
         sales: 0,
         expenses: 0,
+        purchases: 0,
         netProfit: 0,
+        stockValue: 0,
     });
+    const [recentActivity, setRecentActivity] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [expenseModalVisible, setExpenseModalVisible] = useState(false);
@@ -42,51 +50,86 @@ export default function Dashboard() {
         try {
             const startDate = getStartDate(timeRange);
 
-            // 1. Total Products (Always total, not time ranged)
-            const { count: productCount } = await supabase
-                .from('products')
-                .select('*', { count: 'exact', head: true });
-
-            // 2. Low Stock (Global)
+            // 1. Total Products, Low Stock & Stock Value
             const { data: products } = await supabase
                 .from('products')
-                .select('id, stock_movements(quantity)');
+                .select('id, cost_price, stock_movements(quantity)', { count: 'exact' });
 
+            const productCount = products?.length || 0;
             let lowStockCount = 0;
+            let totalStockValue = 0;
+
             if (products) {
                 products.forEach(p => {
                     const stock = p.stock_movements?.reduce((sum: number, m: any) => sum + Number(m.quantity), 0) || 0;
                     if (stock < 10) lowStockCount++;
+                    if (stock > 0) {
+                        totalStockValue += (stock * (Number(p.cost_price) || 0));
+                    }
                 });
             }
 
-            // 3. Sales (Time Ranged)
-            // Query sales
+            // 2. Sales
             const { data: sales } = await supabase
                 .from('sales')
-                .select('total_amount, created_at')
-                .gte('created_at', startDate);
+                .select('id, total_amount, created_at, sale_items(quantity, cost_at_sale)')
+                .gte('created_at', startDate)
+                .order('created_at', { ascending: false });
 
-            const salesTotal = sales?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
-
-            // 4. Expenses (Time Ranged)
-            // Expenses store 'date' which might be just YYYY-MM-DD or ISO.
-            // If it's just date, comparison still works if string format matches ISO YYYY-MM-DD.
+            // 3. Expenses
             const { data: expenses } = await supabase
                 .from('expenses')
-                .select('amount, date')
-                .gte('date', startDate);
+                .select('id, amount, date, description')
+                .gte('date', startDate)
+                .order('date', { ascending: false });
+
+            // 4. Purchases
+            const { data: purchases } = await supabase
+                .from('purchases')
+                .select('id, total_cost, created_at, products(name)')
+                .gte('created_at', startDate)
+                .order('created_at', { ascending: false });
+
+            // Calculate Totals
+            let salesTotal = 0;
+            let cogsTotal = 0;
+            if (sales) {
+                sales.forEach(sale => {
+                    salesTotal += Number(sale.total_amount);
+                    if (sale.sale_items) {
+                        sale.sale_items.forEach((item: any) => {
+                            cogsTotal += (Number(item.quantity) * Number(item.cost_at_sale || 0));
+                        });
+                    }
+                });
+            }
 
             const expensesTotal = expenses?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0;
-            const netProfit = salesTotal - expensesTotal;
+            const purchasesTotal = purchases?.reduce((sum, pur) => sum + Number(pur.total_cost), 0) || 0;
+
+            const grossProfit = salesTotal - cogsTotal;
+            const netProfit = grossProfit - expensesTotal;
 
             setStats({
-                totalProducts: productCount || 0,
+                totalProducts: productCount,
                 lowStock: lowStockCount,
                 sales: salesTotal,
                 expenses: expensesTotal,
+                purchases: purchasesTotal,
                 netProfit: netProfit,
+                stockValue: totalStockValue,
             });
+
+            // 5. Recent Activity (Top 5 Mixed)
+            const recentSales = (sales || []).slice(0, 5).map(s => ({ ...s, type: 'sale', date: s.created_at, amount: s.total_amount }));
+            const recentExpenses = (expenses || []).slice(0, 5).map(e => ({ ...e, type: 'expense', date: e.date, amount: e.amount }));
+            const recentPurchases = (purchases || []).slice(0, 5).map(p => ({ ...p, type: 'purchase', date: p.created_at, amount: p.total_cost }));
+
+            const combined = [...recentSales, ...recentExpenses, ...recentPurchases]
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .slice(0, 5);
+
+            setRecentActivity(combined);
 
         } catch (error) {
             console.error('Dashboard Error:', error);
@@ -96,7 +139,6 @@ export default function Dashboard() {
         }
     };
 
-    // Reload when timeRange changes
     useEffect(() => {
         setLoading(true);
         loadStats();
@@ -113,156 +155,224 @@ export default function Dashboard() {
         loadStats();
     };
 
+    const handleSwipe = (direction: 'left' | 'right') => {
+        const ranges: ('Day' | 'Week' | 'Month' | 'Year')[] = ['Day', 'Week', 'Month', 'Year'];
+        const currentIndex = ranges.indexOf(timeRange);
+        let newIndex = currentIndex;
+
+        if (direction === 'left') {
+            if (currentIndex < ranges.length - 1) newIndex++;
+        } else {
+            if (currentIndex > 0) newIndex--;
+        }
+
+        if (newIndex !== currentIndex) {
+            setTimeRange(ranges[newIndex]);
+        }
+    };
+
+    const swipeLeft = Gesture.Fling().direction(1).onEnd(() => runOnJS(handleSwipe)('right'));
+    const swipeRight = Gesture.Fling().direction(2).onEnd(() => runOnJS(handleSwipe)('left'));
+
+    const composedGestures = Gesture.Simultaneous(swipeLeft, swipeRight);
+
+    const renderActivityItem = (item: any) => {
+        let iconName: any = 'help';
+        let iconColor = Colors.textSecondary;
+        let bgColor = Colors.surfaceSubtle;
+        let title = '';
+        let subtitle = '';
+        let amount = 0;
+        let isNegative = false;
+
+        if (item.type === 'sale') {
+            iconName = 'receipt-outline';
+            iconColor = Colors.success;
+            bgColor = Colors.successLight;
+            title = 'New Sale';
+            subtitle = new Date(item.date).toLocaleDateString();
+            amount = item.amount;
+        } else if (item.type === 'expense') {
+            iconName = 'wallet-outline';
+            iconColor = Colors.error;
+            bgColor = Colors.errorLight;
+            title = item.description || 'Expense';
+            subtitle = new Date(item.date).toLocaleDateString();
+            amount = item.amount;
+            isNegative = true;
+        } else if (item.type === 'purchase') {
+            iconName = 'cube-outline';
+            iconColor = Colors.warning;
+            bgColor = '#fff3e0';
+            title = `Stock In: ${item.products?.name || 'Unknown'}`;
+            subtitle = new Date(item.date).toLocaleDateString();
+            amount = item.amount;
+            isNegative = true;
+        }
+
+        return (
+            <View key={`${item.type}-${item.id}`} style={styles.activityItem}>
+                <View style={[styles.activityIcon, { backgroundColor: bgColor }]}>
+                    <Ionicons name={iconName} size={20} color={iconColor} />
+                </View>
+                <View style={styles.activityContent}>
+                    <ThemedText type="defaultSemiBold">{title}</ThemedText>
+                    <ThemedText type="default" style={styles.activityDate}>{subtitle}</ThemedText>
+                </View>
+                <ThemedText type="defaultSemiBold" style={{ color: isNegative ? Colors.text : Colors.success }}>
+                    {isNegative ? '-' : '+'}₹{Number(amount).toFixed(2)}
+                </ThemedText>
+            </View>
+        );
+    };
+
     return (
-        <SafeAreaView style={styles.container}>
-            <ScrollView
-                contentContainerStyle={styles.content}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            >
-                <View style={styles.header}>
-                    <View>
-                        <ThemedText type="title">Dashboard</ThemedText>
-                        <ThemedText type="caption">Financial overview</ThemedText>
-                    </View>
-                    {/* Could place Profile/Settings icon here */}
-                </View>
-
-                {/* Time Filter */}
-                <View style={styles.filterContainer}>
-                    <SegmentedControl
-                        values={['Day', 'Week', 'Month', 'Year']}
-                        selectedIndex={['Day', 'Week', 'Month', 'Year'].indexOf(timeRange)}
-                        onChange={(event) => {
-                            setTimeRange(['Day', 'Week', 'Month', 'Year'][event.nativeEvent.selectedSegmentIndex] as any);
-                        }}
-                    />
-                </View>
-
-                {loading ? (
-                    <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 50 }} />
-                ) : (
-                    <View style={styles.statsContainer}>
-                        {/* Hero Card: Net Profit */}
-                        <Card style={[styles.heroCard, { backgroundColor: stats.netProfit >= 0 ? Colors.primary : Colors.error }]}>
+        <GestureHandlerRootView style={styles.container}>
+            <GestureDetector gesture={composedGestures}>
+                <ScrollView
+                    contentContainerStyle={styles.content}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <SafeAreaView edges={['top']}>
+                        {/* Header */}
+                        <View style={styles.header}>
                             <View>
-                                <ThemedText type="caption" style={{ color: 'rgba(255,255,255,0.8)' }}>Net Profit ({timeRange})</ThemedText>
-                                <ThemedText type="title" style={{ color: 'white', fontSize: 36, marginTop: 4 }}>
-                                    ${stats.netProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </ThemedText>
+                                <ThemedText type="title" style={{ fontSize: 28, color: Colors.text }}>Overview</ThemedText>
+                                <ThemedText type="default" style={{ color: Colors.textSecondary }}>{user?.user_metadata?.full_name || 'Admin'}</ThemedText>
                             </View>
-                            <Ionicons
-                                name={stats.netProfit >= 0 ? "trending-up" : "trending-down"}
-                                size={48}
-                                color="rgba(255,255,255,0.2)"
-                                style={{ position: 'absolute', right: 20, top: 20 }}
-                            />
-                        </Card>
-
-                        {/* Stats Grid */}
-                        <View style={styles.grid}>
-                            {/* Income */}
-                            <Card style={styles.statCard}>
-                                <View style={[styles.iconBox, { backgroundColor: '#e8f5e9' }]}>
-                                    <Ionicons name="arrow-down-circle-outline" size={24} color="#2e7d32" />
-                                </View>
-                                <ThemedText type="defaultSemiBold" style={{ color: '#2e7d32' }}>+${stats.sales.toFixed(0)}</ThemedText>
-                                <ThemedText type="caption">Income</ThemedText>
-                            </Card>
-
-                            {/* Expense */}
-                            <Card style={styles.statCard}>
-                                <View style={[styles.iconBox, { backgroundColor: '#ffebee' }]}>
-                                    <Ionicons name="arrow-up-circle-outline" size={24} color="#c62828" />
-                                </View>
-                                <ThemedText type="defaultSemiBold" style={{ color: '#c62828' }}>-${stats.expenses.toFixed(0)}</ThemedText>
-                                <ThemedText type="caption">Expense</ThemedText>
-                            </Card>
-
-                            {/* Products */}
-                            <Card style={styles.statCard}>
-                                <View style={[styles.iconBox, { backgroundColor: '#e3f2fd' }]}>
-                                    <Ionicons name="cube-outline" size={24} color="#1565c0" />
-                                </View>
-                                <ThemedText type="defaultSemiBold">{stats.totalProducts}</ThemedText>
-                                <ThemedText type="caption">Products</ThemedText>
-                            </Card>
-
-                            {/* Low Stock */}
-                            <Card style={styles.statCard}>
-                                <View style={[styles.iconBox, { backgroundColor: '#fff3e0' }]}>
-                                    <Ionicons name="alert-circle-outline" size={24} color="#ef6c00" />
-                                </View>
-                                <ThemedText type="defaultSemiBold">{stats.lowStock}</ThemedText>
-                                <ThemedText type="caption">Low Stock</ThemedText>
-                            </Card>
+                            <TouchableOpacity onPress={() => router.push('/profile')}>
+                                <Avatar name={user?.user_metadata?.full_name || user?.email} size={42} />
+                            </TouchableOpacity>
                         </View>
-                    </View>
-                )}
 
-                {/* Quick Actions Grid */}
-                <View style={styles.section}>
-                    <ThemedText type="subtitle" style={{ marginBottom: 16 }}>Quick Actions</ThemedText>
-                    <View style={styles.actionGrid}>
-                        {/* New Quote */}
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => router.push('/quick-quote')}
-                            activeOpacity={0.7}
-                        >
-                            <View style={[styles.actionIcon, { backgroundColor: '#e0f7fa' }]}>
-                                <Ionicons name="document-text-outline" size={28} color="#006064" />
+                        {/* Pill Bar Filters */}
+                        <View style={styles.filterContainer}>
+                            {['Day', 'Week', 'Month', 'Year'].map((range) => (
+                                <TouchableOpacity
+                                    key={range}
+                                    onPress={() => setTimeRange(range as any)}
+                                    style={[styles.filterPill, timeRange === range && styles.filterPillActive]}
+                                >
+                                    <ThemedText
+                                        type="defaultSemiBold"
+                                        style={[styles.filterText, timeRange === range && styles.filterTextActive]}
+                                    >
+                                        {range}
+                                    </ThemedText>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        import LoadingState from '@/components/LoadingState';
+
+                        // ... inside component
+
+                        {loading ? (
+                            <LoadingState message="Analyzing data..." transparent />
+                        ) : (
+                            <View style={styles.statsContainer}>
+                                {/* Hero Card: Net Profit */}
+                                <Card style={[styles.heroCard, { backgroundColor: stats.netProfit >= 0 ? Colors.primary : Colors.error }]}>
+                                    <View style={styles.heroContent}>
+                                        <View>
+                                            <ThemedText type="default" style={{ color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}>Net Profit</ThemedText>
+                                            <ThemedText type="title" style={{ color: 'white', fontSize: 42, lineHeight: 48 }}>
+                                                ₹{stats.netProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </ThemedText>
+                                        </View>
+                                        <View style={styles.heroIcon}>
+                                            <Ionicons name={stats.netProfit >= 0 ? "trending-up" : "trending-down"} size={32} color="white" />
+                                        </View>
+                                    </View>
+                                </Card>
+
+                                {/* Grid 1: Sales & Expenses */}
+                                <View style={styles.grid}>
+                                    <Card style={styles.statCard}>
+                                        <View style={[styles.iconBox, { backgroundColor: Colors.successLight }]}>
+                                            <Ionicons name="arrow-down" size={20} color={Colors.success} />
+                                        </View>
+                                        <View>
+                                            <ThemedText type="default" style={styles.statLabel}>Income</ThemedText>
+                                            <ThemedText type="defaultSemiBold" style={{ color: Colors.success, fontSize: 16 }}>
+                                                +₹{stats.sales.toLocaleString()}
+                                            </ThemedText>
+                                        </View>
+                                    </Card>
+
+                                    <Card style={styles.statCard}>
+                                        <View style={[styles.iconBox, { backgroundColor: Colors.errorLight }]}>
+                                            <Ionicons name="arrow-up" size={20} color={Colors.error} />
+                                        </View>
+                                        <View>
+                                            <ThemedText type="default" style={styles.statLabel}>Expense</ThemedText>
+                                            <ThemedText type="defaultSemiBold" style={{ color: Colors.error, fontSize: 16 }}>
+                                                -₹{stats.expenses.toLocaleString()}
+                                            </ThemedText>
+                                        </View>
+                                    </Card>
+                                </View>
+
+                                {/* Grid 2: Purchases & Stock Value */}
+                                <View style={styles.grid}>
+                                    <Card style={styles.statCard}>
+                                        <View style={[styles.iconBox, { backgroundColor: '#fff3e0' }]}>
+                                            <Ionicons name="cube" size={20} color={Colors.warning} />
+                                        </View>
+                                        <View>
+                                            <ThemedText type="default" style={styles.statLabel}>Purchases</ThemedText>
+                                            <ThemedText type="defaultSemiBold" style={{ color: Colors.warning, fontSize: 16 }}>
+                                                ₹{stats.purchases.toLocaleString()}
+                                            </ThemedText>
+                                        </View>
+                                    </Card>
+
+                                    <Card style={styles.statCard}>
+                                        <View style={[styles.iconBox, { backgroundColor: Colors.primaryLight }]}>
+                                            <Ionicons name="pricetag" size={20} color={Colors.primary} />
+                                        </View>
+                                        <View>
+                                            <ThemedText type="default" style={styles.statLabel}>Stock Value</ThemedText>
+                                            <ThemedText type="defaultSemiBold" style={{ color: Colors.primary, fontSize: 16 }}>
+                                                ₹{stats.stockValue.toLocaleString()}
+                                            </ThemedText>
+                                        </View>
+                                    </Card>
+                                </View>
+
+                                {/* Alert Row: Low Stock */}
+                                {stats.lowStock > 0 && (
+                                    <Card style={styles.alertCard} variant="flat">
+                                        <Ionicons name="alert-circle" size={20} color={Colors.error} />
+                                        <ThemedText type="defaultSemiBold" style={{ color: Colors.error }}>{stats.lowStock} Items Low Stock</ThemedText>
+                                    </Card>
+                                )}
+
+                                {/* Recent Activity */}
+                                <View style={styles.sectionHeader}>
+                                    <ThemedText type="subtitle" style={{ fontSize: 18 }}>Recent Activity</ThemedText>
+                                </View>
+                                <Card style={styles.activityCard} variant="flat">
+                                    {recentActivity.length > 0 ? (
+                                        recentActivity.map(renderActivityItem)
+                                    ) : (
+                                        <ThemedText style={{ textAlign: 'center', color: Colors.textSecondary, padding: 20 }}>No recent activity</ThemedText>
+                                    )}
+                                </Card>
                             </View>
-                            <ThemedText type="caption" style={styles.actionText}>New Quote</ThemedText>
-                        </TouchableOpacity>
-
-                        {/* New Expense */}
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => setExpenseModalVisible(true)}
-                            activeOpacity={0.7}
-                        >
-                            <View style={[styles.actionIcon, { backgroundColor: '#ffebee' }]}>
-                                <Ionicons name="wallet-outline" size={28} color="#c62828" />
-                            </View>
-                            <ThemedText type="caption" style={styles.actionText}>Add Expense</ThemedText>
-                        </TouchableOpacity>
-
-                        {/* Add Product */}
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => router.push('/(tabs)/products')} // Just nav to products for now, ideally open modal
-                            activeOpacity={0.7}
-                        >
-                            <View style={[styles.actionIcon, { backgroundColor: '#e3f2fd' }]}>
-                                <Ionicons name="add-circle-outline" size={28} color="#1565c0" />
-                            </View>
-                            <ThemedText type="caption" style={styles.actionText}>Add Item</ThemedText>
-                        </TouchableOpacity>
-
-                        {/* New Invoice (Nav to Billing) */}
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => router.push('/(tabs)/billing')}
-                            activeOpacity={0.7}
-                        >
-                            <View style={[styles.actionIcon, { backgroundColor: '#e8f5e9' }]}>
-                                <Ionicons name="cart-outline" size={28} color="#2e7d32" />
-                            </View>
-                            <ThemedText type="caption" style={styles.actionText}>New Sale</ThemedText>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                {/* Spacer for navbar */}
-                <View style={{ height: 20 }} />
-            </ScrollView>
+                        )}
+                    </SafeAreaView>
+                    <View style={{ height: 120 }} />
+                </ScrollView>
+            </GestureDetector>
 
             <AddExpenseModal
                 visible={expenseModalVisible}
                 onClose={() => setExpenseModalVisible(false)}
                 onSave={loadStats}
             />
-        </SafeAreaView>
+        </GestureHandlerRootView>
     );
 }
 
@@ -272,73 +382,125 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.background,
     },
     content: {
-        padding: 20,
+        paddingHorizontal: 20,
+        paddingTop: 10,
     },
     header: {
-        marginBottom: 20,
+        marginBottom: 16,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
     filterContainer: {
-        marginBottom: 24,
+        marginBottom: 20,
+        flexDirection: 'row',
+        backgroundColor: Colors.surfaceSubtle,
+        padding: 4,
+        borderRadius: 40,
+    },
+    filterPill: {
+        flex: 1,
+        paddingVertical: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 30,
+    },
+    filterPillActive: {
+        backgroundColor: Colors.white,
+        ...Colors.shadow,
+        shadowOpacity: 0.1,
+        elevation: 1,
+    },
+    filterText: {
+        color: Colors.textSecondary,
+        fontSize: 12,
+    },
+    filterTextActive: {
+        color: Colors.primary,
+        fontWeight: '700',
     },
     statsContainer: {
-        gap: 16,
+        gap: 12,
     },
     heroCard: {
         padding: 24,
-        borderRadius: 20,
-        minHeight: 140,
+        borderRadius: 24,
+        marginBottom: 4,
+    },
+    heroContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    heroIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        alignItems: 'center',
         justifyContent: 'center',
     },
     grid: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
         gap: 12,
     },
     statCard: {
         flex: 1,
-        minWidth: '45%',
         padding: 16,
-        alignItems: 'center',
-        gap: 8,
+        gap: 12,
+        borderRadius: 20,
+    },
+    statLabel: {
+        color: Colors.textSecondary,
+        fontSize: 12,
+        marginBottom: 2,
     },
     iconBox: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    section: {
-        marginTop: 32,
-    },
-    actionGrid: {
+    alertCard: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 16,
-    },
-    actionButton: {
-        flex: 1,
-        minWidth: '20%', // 4 per row roughly
         alignItems: 'center',
         gap: 8,
-    },
-    actionIcon: {
-        width: 60,
-        height: 60,
+        backgroundColor: Colors.errorLight,
+        padding: 12,
         borderRadius: 16,
         justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-        elevation: 2,
     },
-    actionText: {
-        textAlign: 'center',
-        fontWeight: '600',
-    }
+    sectionHeader: {
+        marginTop: 12,
+        marginBottom: 4,
+    },
+    activityCard: {
+        padding: 0,
+        borderRadius: 20,
+        backgroundColor: Colors.surface, // Used to be white, but surface matches card style
+        overflow: 'hidden',
+    },
+    activityItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.surfaceSubtle,
+        gap: 12,
+    },
+    activityIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    activityContent: {
+        flex: 1,
+    },
+    activityDate: {
+        fontSize: 12,
+        color: Colors.textSecondary,
+    },
 });

@@ -156,7 +156,7 @@ export default function InvoiceDetailScreen() {
 
                     <View style={styles.totalSection}>
                         <ThemedText style={{ color: Colors.textSecondary }}>Total Amount</ThemedText>
-                        <ThemedText type="title">${sale.total_amount?.toFixed(2)}</ThemedText>
+                        <ThemedText type="title">₹{sale.total_amount?.toFixed(2)}</ThemedText>
                     </View>
                 </Card>
 
@@ -168,11 +168,11 @@ export default function InvoiceDetailScreen() {
                             <View style={{ flex: 1 }}>
                                 <ThemedText type="defaultSemiBold">{item.products?.name}</ThemedText>
                                 <ThemedText type="caption">
-                                    {item.quantity} {item.products?.unit} x ${item.price_at_sale}
+                                    {item.quantity} {item.products?.unit} x ₹{item.price_at_sale}
                                 </ThemedText>
                             </View>
                             <ThemedText type="defaultSemiBold">
-                                ${(item.quantity * item.price_at_sale).toFixed(2)}
+                                ₹{(item.quantity * item.price_at_sale).toFixed(2)}
                             </ThemedText>
                         </View>
                     ))}

@@ -157,7 +157,7 @@ export default function QuickQuoteScreen() {
                                 <View style={{ flex: 1 }}>
                                     <ThemedText type="defaultSemiBold">{item.product.name}</ThemedText>
                                     <View style={styles.priceRow}>
-                                        <Text style={{ color: Colors.textSecondary }}>$</Text>
+                                        <Text style={{ color: Colors.textSecondary }}>₹</Text>
                                         <TextInput
                                             style={styles.priceInput}
                                             value={item.price.toString()}
@@ -190,7 +190,7 @@ export default function QuickQuoteScreen() {
             <View style={styles.footer}>
                 <View style={styles.totalRow}>
                     <ThemedText>Total Amount</ThemedText>
-                    <ThemedText type="title">${totalAmount.toFixed(2)}</ThemedText>
+                    <ThemedText type="title">₹{totalAmount.toFixed(2)}</ThemedText>
                 </View>
                 <Button
                     title="Save & Share PDF"

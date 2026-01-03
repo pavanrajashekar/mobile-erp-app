@@ -28,7 +28,16 @@ export default function RootLayout() {
                 {!user ? (
                     <Stack.Screen name="(auth)" />
                 ) : (
-                    <Stack.Screen name="index" />
+                    <>
+                        <Stack.Screen name="index" />
+                        <Stack.Screen
+                            name="profile"
+                            options={{
+                                presentation: 'modal',
+                                headerShown: false,
+                            }}
+                        />
+                    </>
                 )}
             </Stack>
         </>
