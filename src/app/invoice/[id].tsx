@@ -11,12 +11,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { createAndSharePDF } from '@/services/InvoiceGenerator';
 import { getShopDetails } from '@/services/shopService';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import { getMeasurementsBySaleId, MeasurementSheet } from '@/services/measurementService';
+import { useRouter } from 'expo-router';
 
 export default function InvoiceDetailScreen() {
     const { id } = useLocalSearchParams();
+    const router = useRouter();
     const [sale, setSale] = useState<any>(null);
+    const [measurementSheets, setMeasurementSheets] = useState<MeasurementSheet[]>([]);
     const [loading, setLoading] = useState(true);
     const [sharing, setSharing] = useState(false);
+    const [expandedSheets, setExpandedSheets] = useState<Set<string>>(new Set());
+
+    const toggleSheet = (sheetId: string) => {
+        const newSet = new Set(expandedSheets);
+        if (newSet.has(sheetId)) {
+            newSet.delete(sheetId);
+        } else {
+            newSet.add(sheetId);
+        }
+        setExpandedSheets(newSet);
+    };
 
     // Theme Colors
     const backgroundColor = useThemeColor({}, 'background');
@@ -26,6 +41,7 @@ export default function InvoiceDetailScreen() {
     const textSecondary = useThemeColor({}, 'textSecondary');
     const success = useThemeColor({}, 'success');
     const warning = useThemeColor({}, 'warning');
+    const surfaceSubtle = useThemeColor({}, 'surfaceSubtle');
 
     useEffect(() => {
         if (id) fetchSaleDetails();
@@ -81,6 +97,10 @@ export default function InvoiceDetailScreen() {
             } else {
                 setSale({ ...saleData, sale_items: [] });
             }
+
+            // 4. Fetch Linked Measurements
+            const sheets = await getMeasurementsBySaleId(id as string);
+            setMeasurementSheets(sheets || []);
 
         } catch (error) {
             console.error('Error fetching sale details:', error);
@@ -188,6 +208,70 @@ export default function InvoiceDetailScreen() {
                     ))}
                 </View>
 
+
+
+                {/* Measurement Sheets Section */}
+                <View style={{ marginTop: 24, marginBottom: 24 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <ThemedText type="defaultSemiBold" style={{ marginLeft: 4 }}>Measurement Sheets</ThemedText>
+                        <TouchableOpacity
+                            onPress={() => router.push({ pathname: '/measurements/create', params: { saleId: id, customerName: sale.customer_name || 'Cash Customer' } })}
+                        >
+                            <ThemedText style={{ color: primary, fontWeight: '600' }}>+ Add Sheet</ThemedText>
+                        </TouchableOpacity>
+                    </View>
+
+                    {measurementSheets.length === 0 ? (
+                        <View style={[styles.emptyBox, { backgroundColor: surface, borderColor: border }]}>
+                            <ThemedText style={{ color: textSecondary, fontSize: 12 }}>No measurement sheets linked</ThemedText>
+                        </View>
+                    ) : (
+                        <View style={[styles.itemsContainer, { backgroundColor: surface }]}>
+                            {measurementSheets.map((sheet, index) => {
+                                const isExpanded = expandedSheets.has(sheet.id);
+                                return (
+                                    <View key={sheet.id} style={{ borderBottomColor: border, borderBottomWidth: index === measurementSheets.length - 1 ? 0 : 1 }}>
+                                        <TouchableOpacity
+                                            style={styles.itemRow}
+                                            onPress={() => toggleSheet(sheet.id)}
+                                            activeOpacity={0.7}
+                                        >
+                                            <View>
+                                                <ThemedText type="defaultSemiBold">Sheet #{sheet.id.slice(0, 4).toUpperCase()}</ThemedText>
+                                                <ThemedText type="caption">{new Date(sheet.created_at || '').toLocaleDateString()} • {sheet.status}</ThemedText>
+                                            </View>
+                                            <View style={{ alignItems: 'flex-end', flexDirection: 'row', gap: 8 }}>
+                                                <ThemedText type="defaultSemiBold">{sheet.total_area?.toFixed(2) || 0} sq.ft</ThemedText>
+                                                <Ionicons name={isExpanded ? "chevron-down" : "chevron-forward"} size={16} color={textSecondary} />
+                                            </View>
+                                        </TouchableOpacity>
+
+                                        {/* Detailed Items List */}
+                                        {isExpanded && sheet.items && sheet.items.length > 0 && (
+                                            <View style={{ paddingHorizontal: 16, paddingBottom: 16, backgroundColor: surfaceSubtle }}>
+                                                <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: border, paddingBottom: 4, marginBottom: 4 }}>
+                                                    <ThemedText type="caption" style={{ flex: 1 }}>Length</ThemedText>
+                                                    <ThemedText type="caption" style={{ flex: 1 }}>Width</ThemedText>
+                                                    <ThemedText type="caption" style={{ flex: 1 }}>Count</ThemedText>
+                                                    <ThemedText type="caption" style={{ flex: 1, textAlign: 'right' }}>Area</ThemedText>
+                                                </View>
+                                                {sheet.items.map((item, idx) => (
+                                                    <View key={idx} style={{ flexDirection: 'row', paddingVertical: 2 }}>
+                                                        <ThemedText style={{ flex: 1, fontSize: 12 }}>{item.length}</ThemedText>
+                                                        <ThemedText style={{ flex: 1, fontSize: 12 }}>{item.width}</ThemedText>
+                                                        <ThemedText style={{ flex: 1, fontSize: 12 }}>{item.quantity}</ThemedText>
+                                                        <ThemedText style={{ flex: 1, fontSize: 12, textAlign: 'right' }}>{item.area.toFixed(2)}</ThemedText>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        )}
+                                    </View>
+                                );
+                            })}
+                        </View>
+                    )}
+                </View>
+
             </ScrollView>
 
             {/* Footer Action */}
@@ -200,7 +284,7 @@ export default function InvoiceDetailScreen() {
                     style={{ borderRadius: 12 }}
                 />
             </View>
-        </SafeAreaView>
+        </SafeAreaView >
     );
 }
 
@@ -264,5 +348,19 @@ const styles = StyleSheet.create({
         padding: 16,
         borderTopWidth: 1,
         paddingBottom: 30,
+    },
+    emptyBox: {
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    sheetHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 12,
     }
 });

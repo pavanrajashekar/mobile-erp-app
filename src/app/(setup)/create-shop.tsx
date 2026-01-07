@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, TextInput, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform, KeyboardAvoidingView, LayoutAnimation } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { createShop, joinShop } from '@/services/shopService';
@@ -10,16 +10,28 @@ import ThemedText from '@/components/ThemedText';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import { Ionicons } from '@expo/vector-icons';
+import { useThemeColor } from '@/hooks/useThemeColor';
 
 export default function CreateShopScreen() {
     const [name, setName] = useState('');
-    const [businessType, setBusinessType] = useState('');
+    const [businessType] = useState('stone');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const router = useRouter();
 
     const [mode, setMode] = useState<'create' | 'join'>('create');
     const [shopId, setShopId] = useState('');
     const [accessCode, setAccessCode] = useState('');
+
+    // Theme Colors
+    const backgroundColor = useThemeColor({}, 'background');
+    const primaryLight = useThemeColor({}, 'primaryLight');
+    const primary = useThemeColor({}, 'primary');
+    const textSecondary = useThemeColor({}, 'textSecondary');
+
+    const toggleMode = (newMode: 'create' | 'join') => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setMode(newMode);
+    };
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
@@ -49,7 +61,7 @@ export default function CreateShopScreen() {
                 await joinShop(shopId.trim());
             }
 
-            Alert.alert('Success', `Shop ${mode === 'create' ? 'created' : 'joined'} !Redirecting...`, [
+            Alert.alert('Success', `Shop ${mode === 'create' ? 'created' : 'joined'}! Redirecting...`, [
                 { text: 'OK', onPress: () => router.replace('/') }
             ]);
         } catch (error: any) {
@@ -66,86 +78,76 @@ export default function CreateShopScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor }]}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+
                     <View style={styles.header}>
-                        <View style={styles.iconContainer}>
-                            <Ionicons name="storefront" size={40} color={Colors.primary} />
+                        <View style={[styles.iconContainer, { backgroundColor: primaryLight }]}>
+                            <Ionicons name="storefront" size={40} color={primary} />
                         </View>
-                        <ThemedText type="title" style={styles.title}>Setup Your Shop</ThemedText>
-                        <ThemedText style={styles.subtitle}>Create a new shop or join an existing one</ThemedText>
+                        <ThemedText type="title" style={styles.title}>Setup Business</ThemedText>
+                        <ThemedText style={[styles.subtitle, { color: textSecondary }]}>
+                            {mode === 'create' ? 'Launch your new digital store' : 'Join your team workspace'}
+                        </ThemedText>
                     </View>
 
-                    {/* Toggle */}
-                    <View style={styles.toggleContainer}>
+                    {/* Dashboard-style Toggle */}
+                    <View style={styles.segmentContainer}>
                         <TouchableOpacity
-                            style={[styles.toggleBtn, mode === 'create' && styles.toggleBtnActive]}
-                            onPress={() => setMode('create')}
+                            style={[styles.segmentButton, mode === 'create' && styles.segmentButtonActive]}
+                            onPress={() => toggleMode('create')}
+                            activeOpacity={0.9}
                         >
-                            <ThemedText style={[styles.toggleText, mode === 'create' && styles.toggleTextActive]}>Create New</ThemedText>
+                            <ThemedText style={[styles.segmentText, mode === 'create' && { color: primary, fontWeight: '700' }]}>
+                                Create Shop
+                            </ThemedText>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[styles.toggleBtn, mode === 'join' && styles.toggleBtnActive]}
-                            onPress={() => setMode('join')}
+                            style={[styles.segmentButton, mode === 'join' && styles.segmentButtonActive]}
+                            onPress={() => toggleMode('join')}
+                            activeOpacity={0.9}
                         >
-                            <ThemedText style={[styles.toggleText, mode === 'join' && styles.toggleTextActive]}>Join Existing</ThemedText>
+                            <ThemedText style={[styles.segmentText, mode === 'join' && { color: primary, fontWeight: '700' }]}>
+                                Join Shop
+                            </ThemedText>
                         </TouchableOpacity>
                     </View>
 
+                    {/* Card Form - Matching Login Style */}
                     <Card style={styles.formCard}>
                         {mode === 'create' ? (
                             <>
                                 <Input
-                                    label="Shop Name *"
+                                    label="Shop Name"
                                     value={name}
                                     onChangeText={setName}
                                     placeholder="e.g. My Granite Store"
+                                    icon="business"
                                 />
 
-                                <View style={styles.inputGroup}>
-                                    <ThemedText style={styles.label}>Business Type</ThemedText>
-                                    <View style={styles.typeContainer}>
-                                        {['retail', 'stone', 'wine'].map((type) => (
-                                            <TouchableOpacity
-                                                key={type}
-                                                style={[
-                                                    styles.typeBtn,
-                                                    businessType === type && styles.typeBtnActive
-                                                ]}
-                                                onPress={() => setBusinessType(type)}
-                                            >
-                                                <ThemedText style={[
-                                                    styles.typeText,
-                                                    businessType === type && styles.typeTextActive
-                                                ]}>
-                                                    {type === 'stone' ? '🪨 Stone' : type === 'wine' ? '🍷 Wine' : '🛒 Retail'}
-                                                </ThemedText>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                </View>
-
-                                <View style={styles.inputGroup}>
+                                <View>
                                     <Input
-                                        label="Admin Access Code *"
+                                        label="Admin Access Code"
                                         value={accessCode}
                                         onChangeText={setAccessCode}
                                         placeholder="Enter Admin PIN"
                                         secureTextEntry
                                         keyboardType="numeric"
+                                        icon="shield-checkmark"
                                     />
                                     <ThemedText type="caption" style={styles.hint}>Required to create a new organization.</ThemedText>
                                 </View>
                             </>
                         ) : (
-                            <View style={styles.inputGroup}>
+                            <View>
                                 <Input
-                                    label="Shop ID *"
+                                    label="Shop ID"
                                     value={shopId}
                                     onChangeText={setShopId}
                                     placeholder="Paste the Shop ID here"
                                     autoCapitalize="none"
+                                    icon="key"
                                 />
                                 <ThemedText type="caption" style={styles.hint}>Ask the shop owner for their ID</ThemedText>
                             </View>
@@ -155,13 +157,14 @@ export default function CreateShopScreen() {
                             title={mode === 'create' ? 'Create Shop' : 'Join Shop'}
                             onPress={handleSubmit}
                             loading={isSubmitting}
-                            style={{ marginTop: 20 }}
+                            style={{ marginTop: 8 }}
                         />
                     </Card>
 
                     <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                        <ThemedText style={styles.logoutText}>Log Out</ThemedText>
+                        <ThemedText style={[styles.logoutText, { color: textSecondary }]}>Sign Out</ThemedText>
                     </TouchableOpacity>
+
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
@@ -171,117 +174,80 @@ export default function CreateShopScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     scrollContent: {
         flexGrow: 1,
+        justifyContent: 'center',
         padding: 24,
     },
     header: {
         alignItems: 'center',
         marginBottom: 32,
-        marginTop: 20,
     },
     iconContainer: {
         width: 80,
         height: 80,
-        backgroundColor: Colors.primaryLight,
         borderRadius: 40,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 16,
     },
     title: {
-        textAlign: 'center',
-        marginBottom: 8,
+        fontSize: 28,
+        marginBottom: 4,
     },
     subtitle: {
         fontSize: 16,
-        color: Colors.textSecondary,
         textAlign: 'center',
     },
     formCard: {
         padding: 24,
         gap: 20,
     },
-    inputGroup: {
-        gap: 8,
+
+    // Dashboard Toggle Style
+    segmentContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#e2e8f0', // Slate 200
+        borderRadius: 24,
+        padding: 4,
+        marginBottom: 24,
     },
-    label: {
-        color: Colors.text,
+    segmentButton: {
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 20,
+    },
+    segmentButtonActive: {
+        backgroundColor: '#FFFFFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    segmentText: {
+        fontSize: 14,
         fontWeight: '500',
-        marginBottom: 8,
+        color: '#64748b',
+    },
+
+    hint: {
+        fontSize: 12,
+        color: '#64748b',
+        marginTop: 6,
+        marginLeft: 4,
     },
     logoutButton: {
         padding: 16,
         alignItems: 'center',
-        marginTop: 20,
-        marginBottom: 20,
+        marginTop: 32,
     },
     logoutText: {
-        color: Colors.error,
-        fontSize: 16,
-        fontWeight: '500',
-    },
-    toggleContainer: {
-        flexDirection: 'row',
-        backgroundColor: Colors.inputBackground,
-        borderRadius: 12,
-        padding: 4,
-        marginBottom: 24,
-    },
-    toggleBtn: {
-        flex: 1,
-        paddingVertical: 12,
-        alignItems: 'center',
-        borderRadius: 8,
-    },
-    toggleBtnActive: {
-        backgroundColor: Colors.white,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
-    },
-    toggleText: {
-        fontWeight: '500',
-        color: Colors.textSecondary,
-    },
-    toggleTextActive: {
-        color: Colors.primary,
-        fontWeight: '700',
-    },
-    hint: {
-        fontSize: 12,
-        color: Colors.textSecondary,
-        marginTop: 4,
-    },
-    typeContainer: {
-        flexDirection: 'row',
-        gap: 10,
-    },
-    typeBtn: {
-        flex: 1,
-        paddingVertical: 16,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        borderRadius: 12,
-        alignItems: 'center',
-        backgroundColor: Colors.inputBackground,
-    },
-    typeBtnActive: {
-        borderColor: Colors.primary,
-        backgroundColor: Colors.primaryLight,
-    },
-    typeText: {
-        fontWeight: '500',
-        color: Colors.textSecondary,
-        textTransform: 'capitalize',
         fontSize: 14,
-    },
-    typeTextActive: {
-        color: Colors.primary,
-        fontWeight: 'bold',
+        fontWeight: '500',
+        textDecorationLine: 'underline',
     },
 });

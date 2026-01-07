@@ -18,12 +18,12 @@ export default function TabsLayout() {
             <Tabs
                 screenOptions={{
                     headerShown: false,
-                    sceneStyle: { backgroundColor: activeColors.background }, // Fix for white corners in dark mode
+                    sceneStyle: { backgroundColor: activeColors.background },
                     tabBarStyle: {
                         backgroundColor: activeColors.surface,
-                        height: Platform.OS === 'ios' ? 108 : 88,
-                        paddingBottom: Platform.OS === 'ios' ? 38 : 18,
-                        paddingTop: 6,
+                        height: Platform.OS === 'ios' ? 90 : 70, // Slightly reduced height or standard
+                        paddingBottom: Platform.OS === 'ios' ? 30 : 10,
+                        paddingTop: 10,
                         borderTopWidth: 0,
                         shadowColor: activeColors.shadowColor,
                         shadowOffset: { width: 0, height: -4 },
@@ -31,17 +31,12 @@ export default function TabsLayout() {
                         shadowRadius: 8,
                         elevation: 8,
                     },
-                    tabBarShowLabel: false,
-                    tabBarActiveTintColor: activeColors.tabIconSelected,
+                    tabBarShowLabel: true, // Maybe labels are helpful now? Or stick to minimal. User said "Home, Add button and Menu".
+                    tabBarActiveTintColor: activeColors.primary,
                     tabBarInactiveTintColor: activeColors.tabIconDefault,
-                    tabBarItemStyle: {
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        paddingVertical: 4,
-                    },
                 }}
-
             >
+                {/* 1. Home */}
                 <Tabs.Screen
                     name="dashboard"
                     options={{
@@ -52,25 +47,13 @@ export default function TabsLayout() {
                     }}
                 />
 
-                <Tabs.Screen
-                    name="billing"
-                    options={{
-                        title: 'Billing',
-                        tabBarIcon: ({ color, size, focused }) => (
-                            <Ionicons name={focused ? "receipt" : "receipt-outline"} color={color} size={24} />
-                        ),
-                    }}
-                />
-
-                {/* Central Add Button */}
+                {/* 2. Add Button (Center) */}
                 <Tabs.Screen
                     name="add_action"
                     options={{
                         title: '',
                         tabBarLabel: () => null,
-                        tabBarIcon: ({ color, focused }) => (
-                            <View />
-                        ),
+                        tabBarIcon: () => null,
                         tabBarButton: (props) => (
                             <TouchableOpacity
                                 {...(props as any)}
@@ -79,26 +62,29 @@ export default function TabsLayout() {
                                     flex: 1,
                                     justifyContent: 'center',
                                     alignItems: 'center',
-                                    marginBottom: 4, // Slight visual lift relative to others if needed, or just alignment
+                                    zIndex: 10,
                                 }}
-                                activeOpacity={0.8}
+                                activeOpacity={0.9}
                             >
                                 <View
                                     style={{
-                                        width: 50,
-                                        height: 50,
-                                        borderRadius: 25,
+                                        width: 56, // Slightly larger
+                                        height: 56,
+                                        borderRadius: 28,
                                         backgroundColor: activeColors.primary,
                                         justifyContent: 'center',
                                         alignItems: 'center',
-                                        shadowColor: activeColors.shadowColor,
+                                        shadowColor: activeColors.primary,
                                         shadowOffset: { width: 0, height: 4 },
-                                        shadowOpacity: 0.3,
+                                        shadowOpacity: 0.4,
                                         shadowRadius: 8,
-                                        elevation: 4,
+                                        elevation: 8,
+                                        marginTop: -20, // Pop out effect
+                                        borderWidth: 4,
+                                        borderColor: activeColors.background, // Match bg to look cut-out
                                     }}
                                 >
-                                    <Ionicons name="add" color="white" size={30} />
+                                    <Ionicons name="add" color="white" size={32} />
                                 </View>
                             </TouchableOpacity>
                         )
@@ -111,26 +97,39 @@ export default function TabsLayout() {
                     })}
                 />
 
+                {/* 3. Menu */}
                 <Tabs.Screen
-                    name="products"
+                    name="menu"
                     options={{
-                        title: 'Products',
+                        title: 'Menu',
                         tabBarIcon: ({ color, size, focused }) => (
-                            <Ionicons name={focused ? "cube" : "cube-outline"} color={color} size={28} />
+                            <Ionicons name={focused ? "grid" : "grid-outline"} color={color} size={24} />
                         )
                     }}
                 />
 
+                {/* --- HIDDEN TABS --- */}
+                <Tabs.Screen
+                    name="billing"
+                    options={{
+                        href: null,
+                        title: 'Billing'
+                    }}
+                />
                 <Tabs.Screen
                     name="sales"
                     options={{
-                        title: 'Transactions',
-                        tabBarIcon: ({ color, size, focused }) => (
-                            <Ionicons name={focused ? "list" : "list-outline"} color={color} size={28} />
-                        )
+                        href: null,
+                        title: 'Transactions'
                     }}
                 />
-
+                <Tabs.Screen
+                    name="products"
+                    options={{
+                        href: null,
+                        title: 'Products'
+                    }}
+                />
             </Tabs>
 
             <QuickActionModal

@@ -4,14 +4,14 @@ import { useAuth } from './useAuth';
 
 interface ShopContextType {
     shopId: string | null;
-    businessType: 'retail' | 'stone' | 'wine' | null;
+    businessType: 'stone';
     loading: boolean;
     refreshShop: () => Promise<void>;
 }
 
 const ShopContext = createContext<ShopContextType>({
     shopId: null,
-    businessType: null,
+    businessType: 'stone',
     loading: true,
     refreshShop: async () => { },
 });
@@ -19,7 +19,7 @@ const ShopContext = createContext<ShopContextType>({
 export function ShopProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
     const [shopId, setShopId] = useState<string | null>(null);
-    const [businessType, setBusinessType] = useState<any>(null);
+    const [businessType, setBusinessType] = useState<'stone'>('stone');
     const [loading, setLoading] = useState(true);
 
     const loadShop = async () => {
@@ -38,20 +38,11 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
 
             if (profile?.shop_id) {
                 setShopId(profile.shop_id);
-
-                // 2. Get Business Type from Shop
-                const { data: shop } = await supabase
-                    .from('shops')
-                    .select('business_type')
-                    .eq('id', profile.shop_id)
-                    .single();
-
-                if (shop) {
-                    setBusinessType(shop.business_type);
-                }
+                // We enforce stone business type for the app logic
+                setBusinessType('stone');
             } else {
                 setShopId(null);
-                setBusinessType(null);
+                setBusinessType('stone');
             }
         } catch (error) {
             console.error('Error loading shop context:', error);

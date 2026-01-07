@@ -1,62 +1,94 @@
 import { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, Alert, Image, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { View, StyleSheet, TouchableOpacity, Text, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, LayoutAnimation } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/services/supabase';
 import Input from '@/components/Input';
 import Button from '@/components/Button';
-import { Colors } from '@/constants/Colors';
+import Card from '@/components/Card';
 import ThemedText from '@/components/ThemedText';
-import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/useThemeColor';
 
-export default function LoginScreen() {
+export default function AuthScreen() {
+    const [mode, setMode] = useState<'login' | 'signup'>('login');
+    const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
-
-    const [connectionStatus, setConnectionStatus] = useState<string>('');
 
     // Theme Colors
     const backgroundColor = useThemeColor({}, 'background');
     const primaryLight = useThemeColor({}, 'primaryLight');
     const primary = useThemeColor({}, 'primary');
     const textSecondary = useThemeColor({}, 'textSecondary');
-    const errorColor = useThemeColor({}, 'error');
-    const successColor = useThemeColor({}, 'success');
+    const surface = useThemeColor({}, 'surface');
 
-    const checkConnection = async () => {
-        setConnectionStatus('Checking...');
-        try {
-            const { error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
-            if (error) throw error;
-            setConnectionStatus('Connected to Supabase ✅');
-        } catch (err: any) {
-            setConnectionStatus(`Connection Error ❌: ${err.message}`);
-        }
+    const toggleMode = (newMode: 'login' | 'signup') => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setMode(newMode);
     };
 
-    const handleLogin = async () => {
+    const handleAuth = async () => {
         if (!email || !password) {
-            Alert.alert('Error', 'Please enter both email and password');
+            Alert.alert('Error', 'Please enter email and password');
             return;
+        }
+
+        if (mode === 'signup') {
+            if (!name.trim()) {
+                Alert.alert('Error', 'Please enter your name');
+                return;
+            }
+            if (password !== confirmPassword) {
+                Alert.alert('Error', 'Passwords do not match');
+                return;
+            }
         }
 
         setLoading(true);
         try {
-            const { error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
+            if (mode === 'login') {
+                const { error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                });
+                if (error) throw error;
+                router.replace('/');
+            } else {
+                const { data, error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: {
+                            full_name: name,
+                        }
+                    }
+                });
 
-            if (error) throw error;
+                if (error) throw error;
 
-            // Force navigation to ensure we don't depend solely on the listener
-            router.replace('/');
+                if (data.session) {
+                    const { error: profileError } = await supabase
+                        .from('profiles')
+                        .insert([{
+                            id: data.user?.id,
+                            name: name.trim(),
+                            role: 'owner'
+                        }]);
+
+                    if (profileError) {
+                        console.log('Profile creation note:', profileError.message);
+                    }
+                    router.replace('/');
+                } else {
+                    Alert.alert('Success', 'Please check your email to confirm your account.');
+                    setMode('login');
+                }
+            }
         } catch (error: any) {
-            Alert.alert('Login Failed', error.message);
-            setConnectionStatus(`Login Error: ${error.message}`);
+            Alert.alert(mode === 'login' ? 'Login Failed' : 'Registration Failed', error.message);
         } finally {
             setLoading(false);
         }
@@ -77,10 +109,45 @@ export default function LoginScreen() {
                             />
                         </View>
                         <ThemedText type="title" style={styles.title}>revenew</ThemedText>
-                        <ThemedText style={[styles.subtitle, { color: textSecondary }]}>Boost your revenue easily & in time</ThemedText>
+                        <ThemedText style={[styles.subtitle, { color: textSecondary }]}>
+                            {mode === 'login' ? 'Welcome Back!' : 'Create your account'}
+                        </ThemedText>
                     </View>
 
-                    <View style={styles.form}>
+                    {/* Dashboard-style Toggle */}
+                    <View style={styles.segmentContainer}>
+                        <TouchableOpacity
+                            style={[styles.segmentButton, mode === 'login' && styles.segmentButtonActive]}
+                            onPress={() => toggleMode('login')}
+                            activeOpacity={0.9}
+                        >
+                            <ThemedText style={[styles.segmentText, mode === 'login' && { color: primary, fontWeight: '700' }]}>
+                                Sign In
+                            </ThemedText>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.segmentButton, mode === 'signup' && styles.segmentButtonActive]}
+                            onPress={() => toggleMode('signup')}
+                            activeOpacity={0.9}
+                        >
+                            <ThemedText style={[styles.segmentText, mode === 'signup' && { color: primary, fontWeight: '700' }]}>
+                                Sign Up
+                            </ThemedText>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Card Form */}
+                    <Card style={styles.formCard}>
+                        {mode === 'signup' && (
+                            <Input
+                                label="Full Name"
+                                value={name}
+                                onChangeText={setName}
+                                placeholder="Your Name"
+                                icon="person-outline"
+                            />
+                        )}
+
                         <Input
                             label="Email"
                             value={email}
@@ -100,36 +167,30 @@ export default function LoginScreen() {
                             icon="lock-closed-outline"
                         />
 
+                        {mode === 'signup' && (
+                            <Input
+                                label="Confirm Password"
+                                value={confirmPassword}
+                                onChangeText={setConfirmPassword}
+                                placeholder="********"
+                                secureTextEntry
+                                icon="lock-closed-outline"
+                            />
+                        )}
+
                         <Button
-                            title="Sign In"
-                            onPress={handleLogin}
+                            title={mode === 'login' ? "Sign In" : "Get Started"}
+                            onPress={handleAuth}
                             loading={loading}
                             style={styles.marginTop}
                         />
 
-                        <View style={styles.footer}>
-                            <ThemedText style={{ color: textSecondary }}>Don't have an account? </ThemedText>
-                            <Link href="/(auth)/register" asChild>
-                                <TouchableOpacity>
-                                    <ThemedText type="defaultSemiBold" style={{ color: primary }}>Sign Up</ThemedText>
-                                </TouchableOpacity>
-                            </Link>
-                        </View>
-                    </View>
-
-                    {/* Diagnostic Section */}
-                    <View style={styles.diagnostic}>
-                        <TouchableOpacity onPress={checkConnection} style={styles.diagnosticBtn}>
-                            <ThemedText style={{ color: textSecondary, fontSize: 12, textDecorationLine: 'underline' }}>
-                                Test Connection
-                            </ThemedText>
-                        </TouchableOpacity>
-                        {connectionStatus ? (
-                            <Text style={{ color: connectionStatus.includes('Error') ? errorColor : successColor, marginTop: 5, textAlign: 'center', fontSize: 12 }}>
-                                {connectionStatus}
-                            </Text>
-                        ) : null}
-                    </View>
+                        {mode === 'login' && (
+                            <TouchableOpacity style={{ alignItems: 'center', marginTop: 8 }}>
+                                <ThemedText style={{ color: textSecondary, fontSize: 13 }}>Forgot Password?</ThemedText>
+                            </TouchableOpacity>
+                        )}
+                    </Card>
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
@@ -147,7 +208,7 @@ const styles = StyleSheet.create({
     },
     header: {
         alignItems: 'center',
-        marginBottom: 40,
+        marginBottom: 32,
     },
     iconContainer: {
         width: 80,
@@ -155,32 +216,49 @@ const styles = StyleSheet.create({
         borderRadius: 40,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 16,
     },
     title: {
-        textAlign: 'center',
-        marginBottom: 8,
+        fontSize: 28,
+        marginBottom: 4,
     },
     subtitle: {
         fontSize: 16,
         textAlign: 'center',
     },
-    form: {
+    formCard: {
+        padding: 24,
         gap: 16,
     },
     marginTop: {
         marginTop: 8,
     },
-    footer: {
+    // Dashboard Toggle Style
+    segmentContainer: {
         flexDirection: 'row',
-        justifyContent: 'center',
-        marginTop: 24,
+        backgroundColor: '#e2e8f0', // Slate 200
+        borderRadius: 24,
+        padding: 4,
+        marginBottom: 24,
     },
-    diagnostic: {
-        marginTop: 40,
+    segmentButton: {
+        flex: 1,
+        paddingVertical: 10,
         alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 20,
     },
-    diagnosticBtn: {
-        padding: 8,
+    segmentButtonActive: {
+        backgroundColor: '#FFFFFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    segmentText: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#64748b', // textSecondary-ish
     },
 });

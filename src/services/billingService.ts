@@ -9,7 +9,23 @@ export interface CartItem {
     price: number;
 }
 
-export const processSale = async (items: CartItem[], totalAmount: number, paymentMode: string = 'cash', status: 'completed' | 'quote' = 'completed') => {
+export interface SaleOptions {
+    paymentMode?: string;
+    status?: 'completed' | 'quote';
+    contactId?: string | null;
+    paymentStatus?: 'paid' | 'partial' | 'unpaid';
+    paidAmount?: number;
+}
+
+export const processSale = async (items: CartItem[], totalAmount: number, options: SaleOptions = {}) => {
+    const {
+        paymentMode = 'cash',
+        status = 'completed',
+        contactId = null,
+        paymentStatus = 'paid',
+        paidAmount = 0
+    } = options;
+
     const shopId = await getCurrentShopId();
     if (!shopId) throw new Error('Shop not found');
 
@@ -24,7 +40,10 @@ export const processSale = async (items: CartItem[], totalAmount: number, paymen
             total_amount: totalAmount,
             payment_mode: paymentMode,
             status: status,
-            created_by: user.id
+            created_by: user.id,
+            contact_id: contactId,
+            payment_status: paymentStatus,
+            paid_amount: status === 'completed' && paymentStatus === 'paid' ? totalAmount : paidAmount
         }])
         .select()
         .single();

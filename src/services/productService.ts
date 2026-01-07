@@ -32,6 +32,7 @@ export const fetchProducts = async () => {
     // Calculate current stock from movements
     return data.map((product: any) => ({
         ...product,
+        price: product.selling_price ?? product.price, // Map selling_price to price
         current_stock: product.stock_movements
             ? product.stock_movements.reduce((sum: number, move: { quantity: number }) => sum + move.quantity, 0)
             : 0,
@@ -65,6 +66,7 @@ export const getProduct = async (id: string) => {
 
     return {
         ...product,
+        price: product.selling_price ?? product.price, // Map selling_price to price
         current_stock,
         stock_movements: sortedMovements
     } as Product;
@@ -74,17 +76,15 @@ export const createProduct = async (product: Pick<Product, 'name' | 'category' |
     const shopId = await getCurrentShopId();
     if (!shopId) throw new Error('No shop found for current user');
 
-    // Start with 0 stock, add movement later if needed or supported
-    // For MVP, created products start with 0 stock unless we add initial stock logic
-
-    // We need to remove current_stock from the insert payload as it is not a column
-    const { current_stock, ...productData } = product;
+    // We need to remove current_stock and price from the insert payload
+    const { current_stock, price, ...productData } = product;
 
 
     const { data, error } = await supabase
         .from('products')
         .insert([{
             ...productData,
+            selling_price: price, // Map price to selling_price column
             shop_id: shopId,
             is_active: true
         }])
@@ -92,6 +92,23 @@ export const createProduct = async (product: Pick<Product, 'name' | 'category' |
         .single();
 
     if (error) throw error;
-    return data;
+
+    // Map response back to frontend model
+    return {
+        ...data,
+        price: data.selling_price ?? data.price
+    };
 };
 
+
+export const updateProduct = async (id: string, updates: Partial<Product>) => {
+    const { data, error } = await supabase
+        .from('products')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data as Product;
+};

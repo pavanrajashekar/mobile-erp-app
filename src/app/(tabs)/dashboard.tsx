@@ -105,7 +105,7 @@ export default function Dashboard() {
             // 2. Sales
             const { data: sales } = await supabase
                 .from('sales')
-                .select('id, total_amount, created_at, sale_items(quantity, cost_at_sale)')
+                .select('id, total_amount, created_at, contacts(name), sale_items(quantity, cost_at_sale)')
                 .gte('created_at', startDate)
                 .order('created_at', { ascending: false });
 
@@ -119,7 +119,7 @@ export default function Dashboard() {
             // 4. Purchases
             const { data: purchases } = await supabase
                 .from('purchases')
-                .select('id, total_cost, created_at, products(name)')
+                .select('id, total_cost, created_at, products(name), contacts(name)')
                 .gte('created_at', startDate)
                 .order('created_at', { ascending: false });
 
@@ -225,7 +225,7 @@ export default function Dashboard() {
             iconName = 'receipt-outline';
             iconColor = activeColors.success;
             bgColor = 'rgba(58, 197, 98, 0.1)'; // successLight
-            title = 'New Sale';
+            title = item.contacts?.name ? `Sale to ${item.contacts.name}` : 'New Sale';
             subtitle = new Date(item.date).toLocaleDateString();
             amount = item.amount;
         } else if (item.type === 'expense') {
@@ -240,8 +240,9 @@ export default function Dashboard() {
             iconName = 'cube-outline';
             iconColor = activeColors.warning;
             bgColor = 'rgba(245, 158, 11, 0.1)'; // warningLight
-            title = `Stock In: ${item.products?.name || 'Unknown'}`;
-            subtitle = new Date(item.date).toLocaleDateString();
+            const productName = item.products?.name || 'Items';
+            title = `Stock In: ${productName}`;
+            subtitle = item.contacts?.name ? `From ${item.contacts.name}` : new Date(item.date).toLocaleDateString();
             amount = item.amount;
             isNegative = true;
         }
@@ -266,11 +267,10 @@ export default function Dashboard() {
         <GestureHandlerRootView style={[styles.container, { backgroundColor: activeColors.background }]}>
             <SafeAreaView edges={['top']} style={{ flex: 1 }}>
                 <View style={[styles.header, { paddingHorizontal: 20, paddingTop: 10 }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <Image source={require('../../../assets/images/revenew-logo.svg')} style={{ width: 32, height: 32, resizeMode: 'contain' }} />
                         <View>
-                            <ThemedText type="title" style={{ fontSize: 24 }}>revenew</ThemedText>
-                            <ThemedText type="default" style={{ color: activeColors.textSecondary, fontSize: 12 }}>{user?.user_metadata?.full_name || 'Admin'}</ThemedText>
+                            <ThemedText type="title" style={{ fontSize: 28 }}>revenew</ThemedText>
                         </View>
                     </View>
                     <TouchableOpacity onPress={() => router.push('/profile')}>

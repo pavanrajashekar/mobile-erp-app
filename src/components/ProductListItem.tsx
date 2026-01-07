@@ -35,14 +35,8 @@ export const ProductListItem = ({ product }: ProductListItemProps) => {
                             <View>
                                 <ThemedText type="defaultSemiBold" style={styles.name}>{product.name}</ThemedText>
 
-                                {businessType === 'wine' && product.category && (
-                                    <ThemedText type="caption" style={{ color: primary, marginBottom: 2 }}>
-                                        🍷 {product.category}
-                                    </ThemedText>
-                                )}
-
                                 <ThemedText type="caption" style={styles.details}>
-                                    {businessType === 'stone' ? 'Slabs' : 'Stock'}: {product.current_stock || 0} {product.unit}
+                                    Stock: {product.current_stock || 0} {product.unit}
                                 </ThemedText>
                             </View>
 

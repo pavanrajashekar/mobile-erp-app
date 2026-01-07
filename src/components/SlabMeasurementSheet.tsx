@@ -41,7 +41,7 @@ export default function SlabMeasurementSheet({ visible, onClose, onConfirm, init
         const h = parseFloat(height) || 0;
         const c = parseFloat(count) || 1;
 
-        // Assuming L x H (in feet/inches logic usually, but here just raw multiplication for 'sqft')
+        // Assuming L x H (in feet/inches logic usually, but here just raw multiplication for 'SF')
         // Standard Stone logic: usually Length * Height = Sqft.
         const area = (l * h * c);
         setTotalArea(parseFloat(area.toFixed(2)));

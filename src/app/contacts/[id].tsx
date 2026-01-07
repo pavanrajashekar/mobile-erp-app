@@ -1,21 +1,25 @@
-import { View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Linking, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-router';
 import { useState, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Product, getProduct } from '@/services/productService';
+import { Contact, getContactById, getContactTransactions } from '@/services/contactService';
 import { Colors } from '@/constants/Colors';
 import ThemedText from '@/components/ThemedText';
 import { useTheme } from '@/context/ThemeContext';
+import Avatar from '@/components/Avatar';
 
-export default function ProductDetailScreen() {
+export default function ContactDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const [product, setProduct] = useState<Product | null>(null);
+    const [contact, setContact] = useState<Contact | null>(null);
+    const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({ totalAmount: 0, balance: 0 });
 
     // Filters
-    const [typeFilter, setTypeFilter] = useState<'all' | 'in' | 'out'>('all');
+    const [typeFilter, setTypeFilter] = useState<'all' | 'sale' | 'purchase'>('all');
     const [timeFilter, setTimeFilter] = useState<'all' | 'month' | 'year'>('month');
+
     const timeOptions: ('all' | 'month' | 'year')[] = ['all', 'month', 'year'];
 
     const router = useRouter();
@@ -26,11 +30,21 @@ export default function ProductDetailScreen() {
         if (!id) return;
         setLoading(true);
         try {
-            const data = await getProduct(id);
-            setProduct(data);
+            const contactData = await getContactById(id);
+            setContact(contactData);
+
+            const txData = await getContactTransactions(id, contactData.type);
+            setTransactions(txData);
+
+            const total = txData.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+            setStats({
+                totalAmount: total,
+                balance: 0
+            });
+
         } catch (error) {
-            console.error('Error fetching product:', error);
-            Alert.alert('Error', 'Failed to load product details');
+            console.error('Error fetching contact:', error);
+            Alert.alert('Error', 'Failed to load contact details');
         } finally {
             setLoading(false);
         }
@@ -47,19 +61,38 @@ export default function ProductDetailScreen() {
             'Options',
             'Choose an action',
             [
-                { text: 'Cancel', style: 'cancel' },
                 {
-                    text: 'Edit Product',
-                    // Link to the Add screen with ID param
-                    onPress: () => router.push({ pathname: '/products/add', params: { id: product?.id } })
+                    text: 'Cancel',
+                    style: 'cancel'
                 },
                 {
-                    text: 'Delete Product',
+                    text: 'Edit Contact',
+                    onPress: () => router.push({ pathname: '/contacts/create', params: { id: contact?.id, type: contact?.type } })
+                },
+                {
+                    text: 'Delete Contact',
                     onPress: () => Alert.alert('Delete', 'Delete functionality coming soon.', [{ text: 'OK' }]),
                     style: 'destructive'
                 }
             ]
         );
+    };
+
+    const handleCall = () => {
+        if (contact?.phone) Linking.openURL(`tel:${contact.phone}`);
+    };
+
+    const handleEmail = () => {
+        if (contact?.email) Linking.openURL(`mailto:${contact.email}`);
+    };
+
+    const handleWhatsApp = () => {
+        if (contact?.phone) {
+            const phone = contact.phone.replace(/\D/g, '');
+            Linking.openURL(`whatsapp://send?phone=${phone}`).catch(() => {
+                Linking.openURL(`https://wa.me/${phone}`);
+            });
+        }
     };
 
     const cycleTimeFilter = () => {
@@ -76,57 +109,51 @@ export default function ProductDetailScreen() {
         );
     }
 
-    if (!product) {
+    if (!contact) {
         return (
             <View style={[styles.centered, { backgroundColor: activeColors.background }]}>
-                <ThemedText>Product not found</ThemedText>
+                <ThemedText>Contact not found</ThemedText>
             </View>
         );
     }
 
-    // Filter Logic
-    const movements = product.stock_movements || [];
-    const filteredMovements = movements.filter(mv => {
-        // 1. Type Filter (In = quantity > 0, Out = quantity < 0)
-        let typeMatch = true;
-        if (typeFilter === 'in') typeMatch = mv.quantity > 0;
-        if (typeFilter === 'out') typeMatch = mv.quantity < 0;
-
-        // 2. Time Filter
+    const filteredTransactions = transactions.filter(tx => {
+        const typeMatch = typeFilter === 'all' || tx.type === typeFilter;
         let timeMatch = true;
         if (timeFilter !== 'all') {
-            const mvDate = new Date(mv.created_at);
+            const txDate = new Date(tx.date);
             const now = new Date();
             if (timeFilter === 'month') {
-                timeMatch = mvDate.getMonth() === now.getMonth() && mvDate.getFullYear() === now.getFullYear();
+                timeMatch = txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear();
             } else if (timeFilter === 'year') {
-                timeMatch = mvDate.getFullYear() === now.getFullYear();
+                timeMatch = txDate.getFullYear() === now.getFullYear();
             }
         }
         return typeMatch && timeMatch;
     });
 
-    const isLowStock = (product.current_stock || 0) <= 5;
+    const isCustomer = contact.type === 'customer';
+    const brandColor = isCustomer ? '#F59E0B' : '#9333EA';
+    const brandBg = isCustomer ? 'rgba(245, 158, 11, 0.1)' : 'rgba(147, 51, 234, 0.1)';
 
-    const renderMovement = (item: any) => {
-        const isStockIn = item.quantity > 0;
-        const typeLabel = isStockIn ? 'Stock In' : 'Stock Out';
-        const icon = isStockIn ? 'arrow-down-circle' : 'arrow-up-circle';
-        const color = isStockIn ? '#F59E0B' : activeColors.success;
+    const renderTransaction = (item: any) => {
+        const isSale = item.type === 'sale';
+        const typeLabel = isSale ? 'Sale' : 'Purchase';
+        const icon = isSale ? 'arrow-down-circle' : 'arrow-up-circle';
 
         return (
             <TouchableOpacity key={item.id} style={[styles.historyItem, { borderBottomColor: activeColors.border }]} activeOpacity={0.7}>
                 <View style={styles.historyLeft}>
                     <View style={[styles.historyIcon, { backgroundColor: activeColors.surfaceSubtle }]}>
-                        <Ionicons name={icon} size={20} color={color} />
+                        <Ionicons name={icon} size={20} color={isSale ? activeColors.success : activeColors.error} />
                     </View>
                     <View style={{ marginLeft: 12 }}>
-                        <ThemedText type="defaultSemiBold">{item.type ? item.type.charAt(0).toUpperCase() + item.type.slice(1) : typeLabel}</ThemedText>
-                        <ThemedText style={{ fontSize: 12, color: activeColors.textSecondary }}>{new Date(item.created_at).toLocaleDateString()}</ThemedText>
+                        <ThemedText type="defaultSemiBold">{typeLabel}</ThemedText>
+                        <ThemedText style={{ fontSize: 12, color: activeColors.textSecondary }}>{new Date(item.date).toLocaleDateString()}</ThemedText>
                     </View>
                 </View>
-                <ThemedText type="defaultSemiBold" style={{ color: color }}>
-                    {isStockIn ? '+' : ''}{item.quantity}
+                <ThemedText type="defaultSemiBold" style={{ color: isSale ? activeColors.success : activeColors.text }}>
+                    ₹{Number(item.amount).toLocaleString()}
                 </ThemedText>
             </TouchableOpacity>
         );
@@ -141,7 +168,8 @@ export default function ProductDetailScreen() {
                 <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
                     <Ionicons name="arrow-back" size={24} color={activeColors.text} />
                 </TouchableOpacity>
-                <ThemedText type="subtitle">Product Details</ThemedText>
+                <ThemedText type="subtitle">Details</ThemedText>
+                {/* Options Menu Button Replacing Edit Button */}
                 <TouchableOpacity onPress={handleOptions} style={styles.headerBtn}>
                     <Ionicons name="ellipsis-vertical" size={24} color={activeColors.text} />
                 </TouchableOpacity>
@@ -151,32 +179,37 @@ export default function ProductDetailScreen() {
 
                 {/* Hero Card */}
                 <View style={[styles.heroCard, { backgroundColor: activeColors.surface, shadowColor: activeColors.shadowColor }]}>
-
-                    {/* Top Row: Icon + Name */}
                     <View style={styles.profileRow}>
-                        <View style={[styles.iconBox, { backgroundColor: activeColors.surfaceSubtle }]}>
-                            <Ionicons name="cube-outline" size={32} color={activeColors.primary} />
+                        <View style={[styles.avatar, { backgroundColor: brandColor }]}>
+                            <ThemedText style={[styles.avatarText, { color: '#FFFFFF' }]}>{contact.name.slice(0, 2).toUpperCase()}</ThemedText>
                         </View>
-
                         <View style={{ marginLeft: 16, flex: 1 }}>
-                            <ThemedText type="title" style={{ fontSize: 22, lineHeight: 28 }}>{product.name}</ThemedText>
-                            <ThemedText style={{ fontSize: 14, color: activeColors.textSecondary, marginTop: 4 }}>
-                                {product.category || 'Uncategorized'}  {product.unit ? `• ${product.unit}` : ''}
-                            </ThemedText>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                                <ThemedText type="title" style={{ fontSize: 22 }}>{contact.name}</ThemedText>
+                                <View style={[styles.tag, { backgroundColor: brandBg }]}>
+                                    <ThemedText style={[styles.tagText, { color: brandColor }]}>{isCustomer ? 'Customer' : 'Supplier'}</ThemedText>
+                                </View>
+                            </View>
+                            {contact.address && (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+                                    <Ionicons name="location-outline" size={14} color={activeColors.textSecondary} style={{ marginRight: 2 }} />
+                                    <ThemedText style={{ fontSize: 13, color: activeColors.textSecondary }} numberOfLines={1}>
+                                        {contact.address}
+                                    </ThemedText>
+                                </View>
+                            )}
                         </View>
                     </View>
 
-                    {/* Divider Line */}
                     <View style={[styles.divider, { backgroundColor: activeColors.border, marginVertical: 20 }]} />
 
-                    {/* Stats Row (Left Aligned with Vertical Divider) */}
                     <View style={styles.statsRow}>
                         <View style={styles.statItem}>
                             <ThemedText style={{ fontSize: 12, color: activeColors.textSecondary, textTransform: 'uppercase', marginBottom: 4 }}>
-                                Current Stock
+                                {isCustomer ? 'Receivables' : 'Payables'}
                             </ThemedText>
-                            <ThemedText type="title" style={{ fontSize: 24, color: isLowStock ? activeColors.error : activeColors.text }}>
-                                {product.current_stock || 0}
+                            <ThemedText type="title" style={{ fontSize: 24, color: isCustomer ? activeColors.success : activeColors.error }}>
+                                ₹{stats.balance.toLocaleString()}
                             </ThemedText>
                         </View>
 
@@ -184,19 +217,38 @@ export default function ProductDetailScreen() {
 
                         <View style={styles.statItem}>
                             <ThemedText style={{ fontSize: 12, color: activeColors.textSecondary, textTransform: 'uppercase', marginBottom: 4 }}>
-                                Selling Price
+                                Total Volume
                             </ThemedText>
-                            <ThemedText type="defaultSemiBold" style={{ fontSize: 24, color: activeColors.success }}>
-                                ₹{product.price ? product.price.toLocaleString() : '0'}
+                            <ThemedText type="defaultSemiBold" style={{ fontSize: 18 }}>
+                                ₹{stats.totalAmount.toLocaleString()}
                             </ThemedText>
                         </View>
                     </View>
                 </View>
 
-                {/* Filter Bar */}
+                {(contact.phone || contact.email) && (
+                    <View style={styles.actionRow}>
+                        {contact.phone && (
+                            <TouchableOpacity style={[styles.actionCard, { backgroundColor: activeColors.surface, shadowColor: activeColors.shadowColor }]} onPress={handleCall}>
+                                <Ionicons name="call" size={24} color={activeColors.primary} />
+                            </TouchableOpacity>
+                        )}
+                        {contact.phone && (
+                            <TouchableOpacity style={[styles.actionCard, { backgroundColor: activeColors.surface, shadowColor: activeColors.shadowColor }]} onPress={handleWhatsApp}>
+                                <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
+                            </TouchableOpacity>
+                        )}
+                        {contact.email && (
+                            <TouchableOpacity style={[styles.actionCard, { backgroundColor: activeColors.surface, shadowColor: activeColors.shadowColor }]} onPress={handleEmail}>
+                                <Ionicons name="mail" size={24} color={activeColors.primary} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                )}
+
                 <View style={styles.filterRow}>
                     <View style={[styles.segmentContainer, { backgroundColor: '#e2e8f0' }]}>
-                        {(['all', 'in', 'out'] as const).map((f) => (
+                        {(['all', 'sale', 'purchase'] as const).map((f) => (
                             <TouchableOpacity
                                 key={f}
                                 onPress={() => setTypeFilter(f)}
@@ -210,7 +262,7 @@ export default function ProductDetailScreen() {
                                     styles.segmentText,
                                     typeFilter === f ? { color: activeColors.primary, fontWeight: '700' } : { color: activeColors.textSecondary, fontWeight: '500' }
                                 ]}>
-                                    {f === 'all' ? 'All' : f === 'in' ? 'In' : 'Out'}
+                                    {f === 'all' ? 'All' : f === 'sale' ? 'Sales' : 'Payments'}
                                 </ThemedText>
                             </TouchableOpacity>
                         ))}
@@ -227,13 +279,12 @@ export default function ProductDetailScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {/* Transactions List */}
                 <View style={[styles.listContainer, { backgroundColor: activeColors.surface, shadowColor: activeColors.shadowColor, borderColor: activeColors.border }]}>
-                    {filteredMovements.length > 0 ? (
-                        filteredMovements.map(renderMovement)
+                    {filteredTransactions.length > 0 ? (
+                        filteredTransactions.map(renderTransaction)
                     ) : (
                         <View style={styles.emptyState}>
-                            <ThemedText style={{ color: activeColors.textSecondary, fontStyle: 'italic' }}>No stock movements found</ThemedText>
+                            <ThemedText style={{ color: activeColors.textSecondary, fontStyle: 'italic' }}>No transactions found</ThemedText>
                         </View>
                     )}
                 </View>
@@ -270,7 +321,7 @@ const styles = StyleSheet.create({
     heroCard: {
         borderRadius: 20,
         padding: 24,
-        marginBottom: 24,
+        marginBottom: 16, // Reduced margin
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 8,
@@ -280,12 +331,16 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
-    iconBox: {
+    avatar: {
         width: 60,
         height: 60,
-        borderRadius: 16,
+        borderRadius: 30,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    avatarText: {
+        fontSize: 24,
+        fontWeight: 'bold',
     },
     tag: {
         paddingHorizontal: 8,
@@ -313,6 +368,23 @@ const styles = StyleSheet.create({
         width: 1,
         height: 40,
         marginHorizontal: 16,
+    },
+    actionRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: 12,
+        marginBottom: 24,
+    },
+    actionCard: {
+        flex: 1,
+        height: 56,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
     },
     filterRow: {
         flexDirection: 'row',

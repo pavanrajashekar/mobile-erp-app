@@ -1,151 +1,190 @@
-import { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, Stack } from 'expo-router';
-import { createProduct } from '@/services/productService';
+import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
+import { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import Input from '@/components/Input';
 import Button from '@/components/Button';
-import { Colors } from '@/constants/Colors';
-import { useShop } from '@/hooks/useShop';
-import ThemedText from '@/components/ThemedText';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import { createProduct, getProduct, updateProduct } from '@/services/productService';
+import ThemedText from '@/components/ThemedText';
 
 export default function AddProductScreen() {
-    const { businessType } = useShop();
     const router = useRouter();
-    const backgroundColor = useThemeColor({}, 'background');
-    const textSecondary = useThemeColor({}, 'textSecondary');
+    const params = useLocalSearchParams<{ id?: string }>();
+    const isEditing = !!params.id;
 
     const [name, setName] = useState('');
+    const [category, setCategory] = useState('');
+    const [unit, setUnit] = useState('SF');
     const [price, setPrice] = useState('');
     const [costPrice, setCostPrice] = useState('');
-    const [category, setCategory] = useState('');
-    const [unit, setUnit] = useState('');
+    const [currentStock, setCurrentStock] = useState('');
 
-    // Wine Specific Info
-    const [vintage, setVintage] = useState('');
-    const [region, setRegion] = useState('');
-
+    const [loading, setLoading] = useState(isEditing);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const handleSubmit = async () => {
-        if (!name.trim()) {
-            alert('Product name is required');
-            return;
-        }
+    const backgroundColor = useThemeColor({}, 'background');
+    const surface = useThemeColor({}, 'surface');
+    const border = useThemeColor({}, 'border');
+    const textSecondary = useThemeColor({}, 'textSecondary');
+    const textColor = useThemeColor({}, 'text');
 
-        let finalCategory = category;
-        // Merge wine info into category for display purpose if no metadata support yet
-        if (businessType === 'wine') {
-            if (region) finalCategory = region + (finalCategory ? ` • ${finalCategory}` : '');
-            if (vintage) finalCategory = vintage + (finalCategory ? ` • ${finalCategory}` : '');
+    useEffect(() => {
+        if (isEditing && params.id) {
+            loadProduct(params.id);
+        }
+    }, [params.id]);
+
+    const loadProduct = async (id: string) => {
+        try {
+            const data = await getProduct(id);
+            if (data) {
+                setName(data.name);
+                setCategory(data.category || '');
+                setUnit(data.unit || 'SF');
+                setPrice(data.price?.toString() || '');
+                setCostPrice(data.cost_price?.toString() || '');
+                setCurrentStock(data.current_stock?.toString() || '');
+            }
+        } catch (error) {
+            console.error('Error loading product:', error);
+            Alert.alert('Error', 'Failed to load product details');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!name.trim()) {
+            Alert.alert('Error', 'Product Name is required');
+            return;
         }
 
         setIsSubmitting(true);
         try {
-            await createProduct({
+            const productData = {
                 name: name.trim(),
-                price: price ? parseFloat(price) : 0,
-                cost_price: costPrice ? parseFloat(costPrice) : 0,
-                category: finalCategory.trim() || undefined,
-                unit: unit.trim() || undefined,
-            });
-            router.back();
-        } catch (error) {
-            console.error('Error creating product:', error);
-            alert('Failed to create product');
+                category: category.trim() || undefined,
+                unit: unit.trim() || 'SF',
+                price: parseFloat(price) || 0,
+                cost_price: parseFloat(costPrice) || 0,
+                current_stock: parseInt(currentStock) || 0,
+            };
+
+            if (isEditing && params.id) {
+                await updateProduct(params.id, productData);
+                Alert.alert('Success', 'Product updated', [
+                    { text: 'OK', onPress: () => router.back() }
+                ]);
+            } else {
+                await createProduct(productData);
+                Alert.alert('Success', 'Product created', [
+                    { text: 'OK', onPress: () => router.back() }
+                ]);
+            }
+        } catch (e: any) {
+            Alert.alert('Error', e.message);
         } finally {
             setIsSubmitting(false);
         }
     };
 
+    if (loading) {
+        return (
+            <SafeAreaView style={[styles.container, { backgroundColor, justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" />
+            </SafeAreaView>
+        );
+    }
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor }]}>
-            <ScrollView contentContainerStyle={styles.content}>
-                <Stack.Screen options={{ title: 'Add Product' }} />
+            <Stack.Screen options={{ headerShown: false }} />
 
-                <View style={styles.form}>
+            {/* Custom Header */}
+            <View style={[styles.header, { borderBottomColor: border, borderBottomWidth: 1 }]}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+                    <Ionicons name="arrow-back" size={24} color={textColor} />
+                </TouchableOpacity>
+                <ThemedText type="subtitle">{isEditing ? 'Edit Product' : 'New Product'}</ThemedText>
+                <View style={{ width: 40 }} /> {/* Spacer */}
+            </View>
+
+            <ScrollView contentContainerStyle={styles.content}>
+                <View style={[styles.form, { backgroundColor: surface, borderColor: border, borderWidth: 1, borderRadius: 16, padding: 20 }]}>
                     <Input
                         label="Product Name *"
                         value={name}
                         onChangeText={setName}
-                        placeholder={businessType === 'wine' ? "e.g. Cabernet Sauvignon" : "e.g. Granite Slab A1"}
+                        placeholder="e.g. White Marble Slab"
                     />
 
-                    {/* Wine Specific Fields */}
-                    {businessType === 'wine' && (
-                        <View style={styles.row}>
+                    <Input
+                        label="Category"
+                        value={category}
+                        onChangeText={setCategory}
+                        placeholder="e.g. Stone, Tile"
+                    />
+
+                    <View style={styles.row}>
+                        <View style={{ flex: 1 }}>
                             <Input
-                                label="Vintage (Year)"
-                                value={vintage}
-                                onChangeText={setVintage}
-                                placeholder="2020"
-                                keyboardType="numeric"
-                                containerStyle={styles.halfInput}
-                            />
-                            <Input
-                                label="Region"
-                                value={region}
-                                onChangeText={setRegion}
-                                placeholder="Napa Valley"
-                                containerStyle={styles.halfInput}
+                                label="Unit"
+                                value={unit}
+                                onChangeText={setUnit}
+                                placeholder="SF"
                             />
                         </View>
-                    )}
-
-                    <View style={styles.row}>
-                        <Input
-                            label="Selling Price"
-                            value={price}
-                            onChangeText={setPrice}
-                            placeholder="0.00"
-                            keyboardType="numeric"
-                            containerStyle={styles.halfInput}
-                        />
-
-                        <Input
-                            label="Cost Price"
-                            value={costPrice}
-                            onChangeText={setCostPrice}
-                            placeholder="0.00"
-                            keyboardType="numeric"
-                            containerStyle={styles.halfInput}
-                        />
+                        <View style={{ width: 16 }} />
+                        <View style={{ flex: 1 }}>
+                            <Input
+                                label="Stock Quantity"
+                                value={currentStock}
+                                onChangeText={setCurrentStock}
+                                placeholder="0"
+                                keyboardType="numeric"
+                            />
+                        </View>
                     </View>
 
                     <View style={styles.row}>
-                        <Input
-                            label="Category"
-                            value={category}
-                            onChangeText={setCategory}
-                            placeholder={businessType === 'wine' ? "Type (Red/White)" : "e.g. Granite"}
-                            containerStyle={styles.halfInput}
-                        />
-
-                        <Input
-                            label="Unit"
-                            value={unit}
-                            onChangeText={setUnit}
-                            placeholder={businessType === 'stone' ? "sqft" : "pcs"}
-                            containerStyle={styles.halfInput}
-                            defaultValue={businessType === 'stone' ? 'sqft' : ''}
-                        />
+                        <View style={{ flex: 1 }}>
+                            <Input
+                                label="Cost Price"
+                                value={costPrice}
+                                onChangeText={setCostPrice}
+                                placeholder="0.00"
+                                keyboardType="numeric"
+                            />
+                        </View>
+                        <View style={{ width: 16 }} />
+                        <View style={{ flex: 1 }}>
+                            <Input
+                                label="Selling Price"
+                                value={price}
+                                onChangeText={setPrice}
+                                placeholder="0.00"
+                                keyboardType="numeric"
+                            />
+                        </View>
                     </View>
 
-                    {businessType === 'stone' && (
-                        <ThemedText style={{ fontSize: 12, color: textSecondary, marginTop: -10, marginBottom: 10 }}>
-                            * For stone slabs, standard unit is usually 'sqft'.
-                        </ThemedText>
-                    )}
+                    <ThemedText style={{ fontSize: 12, color: textSecondary, marginTop: -4, marginBottom: 12 }}>
+                        * For stone slabs, standard unit is usually 'SF'.
+                    </ThemedText>
 
-                    <Button
-                        title="Save Product"
-                        onPress={handleSubmit}
-                        loading={isSubmitting}
-                        style={styles.marginTop}
-                    />
                 </View>
             </ScrollView>
+
+            {/* Fixed Footer */}
+            <View style={[styles.footer, { backgroundColor: surface, borderTopColor: border }]}>
+                <Button
+                    title={isEditing ? "Update Product" : "Create Product"}
+                    onPress={handleSave}
+                    loading={isSubmitting}
+                />
+            </View>
         </SafeAreaView>
     );
 }
@@ -153,6 +192,16 @@ export default function AddProductScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+    },
+    headerBtn: {
+        padding: 8,
     },
     content: {
         padding: 20,
@@ -162,12 +211,16 @@ const styles = StyleSheet.create({
     },
     row: {
         flexDirection: 'row',
-        gap: 12,
     },
-    halfInput: {
-        flex: 1,
-    },
-    marginTop: {
-        marginTop: 20,
+    footer: {
+        padding: 16,
+        paddingBottom: 24,
+        borderTopWidth: 1,
+        // Shadow
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 8,
     },
 });

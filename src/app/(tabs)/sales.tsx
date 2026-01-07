@@ -55,7 +55,7 @@ export default function SalesScreen() {
     const fetchTransactions = async () => {
         try {
             const [salesResponse, expensesData, purchasesData] = await Promise.all([
-                supabase.from('sales').select('*').order('created_at', { ascending: false }),
+                supabase.from('sales').select('*, contacts(name)').order('created_at', { ascending: false }),
                 fetchExpenses(),
                 fetchPurchases()
             ]);
@@ -179,17 +179,18 @@ export default function SalesScreen() {
             iconName = 'cube-outline';
             iconColor = '#F59E0B'; // Amber for Purchase Icon
             iconBg = 'rgba(245, 158, 11, 0.15)';
-            title = 'Stock Purchase';
+            title = item.supplier_name ? `Purchase from ${item.supplier_name}` : 'Stock Purchase';
             subtitle = item.products?.name || 'Items';
             amount = `-₹${Number(item.total_cost).toFixed(2)}`;
             amountColor = activeColors.text; // Black number
         } else {
             // Sale
+            const customerName = item.contacts?.name;
             if (isQuote) {
                 iconName = 'document-text-outline';
                 iconColor = '#6366F1'; // Indigo for Quote Icon
                 iconBg = 'rgba(99, 102, 241, 0.15)';
-                title = `Quote #${item.id.slice(0, 4).toUpperCase()}`;
+                title = customerName ? `Quote for ${customerName}` : `Quote #${item.id.slice(0, 4).toUpperCase()}`;
                 amount = `₹${item.total_amount?.toFixed(2)}`;
                 amountColor = activeColors.text; // Black number
             } else {
@@ -197,7 +198,7 @@ export default function SalesScreen() {
                 iconName = 'checkmark-circle-outline';
                 iconColor = activeColors.success;
                 iconBg = 'rgba(16, 185, 129, 0.1)';
-                title = `Invoice #${item.id.slice(0, 4).toUpperCase()}`;
+                title = customerName ? `Sale to ${customerName}` : `Invoice #${item.id.slice(0, 4).toUpperCase()}`;
                 amount = `+₹${item.total_amount?.toFixed(2)}`;
                 amountColor = activeColors.success; // Green number
             }

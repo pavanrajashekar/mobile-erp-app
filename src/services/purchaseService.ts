@@ -69,10 +69,16 @@ export const fetchPurchases = async () => {
         .from('purchases')
         .select(`
             *,
-            products (name)
+            products (name),
+            contacts (name)
         `)
         .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data;
+
+    return data.map((item: any) => ({
+        ...item,
+        // Prefer contact name if linked, else fallback to manual supplier_name
+        supplier_name: item.contacts?.name || item.supplier_name
+    }));
 };

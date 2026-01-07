@@ -91,7 +91,7 @@ export default function ProfileScreen() {
                         <Avatar name={user?.user_metadata?.full_name || user?.email} size={52} />
                         <View style={{ flex: 1 }}>
                             <ThemedText type="title" style={{ fontSize: 22 }}>{user?.user_metadata?.full_name || 'Admin User'}</ThemedText>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                 <ThemedText type="default" style={{ color: activeColors.textSecondary }}>{user?.email}</ThemedText>
                             </View>
                         </View>
@@ -141,8 +141,8 @@ export default function ProfileScreen() {
                         </Card>
                     </View>
 
-                    <ThemedText type="caption" style={{ textAlign: 'center', marginTop: 20, marginBottom: 40, color: activeColors.textSecondary }}>
-                        Version 1.0.0 • MyShop Pro
+                    <ThemedText type="caption" style={{ textAlign: 'center', marginTop: 20, marginBottom: 10, color: activeColors.textSecondary }}>
+                        Version 1.0.0 • revenew
                     </ThemedText>
 
                 </ScrollView>
